@@ -1048,6 +1048,26 @@ body::before {
   white-space: nowrap;
   animation: action-panel-pulse 2s ease-in-out infinite;
 }
+/* Quick-move picker popup — shown on double-click when 2+ people can move */
+#quick-picker {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(2,8,2,0.97);
+  border: 1px solid var(--green);
+  padding: 10px 14px;
+  z-index: 30;
+  min-width: 160px;
+}
+#quick-picker .qp-title {
+  font-size: 9px;
+  color: var(--green-dim);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+#quick-picker .qp-btns { display: flex; flex-direction: column; gap: 5px; }
 </style>
 </head>
 <body>
@@ -1263,6 +1283,12 @@ body::before {
 
         <!-- First-turn tutorial hint -->
         <div id="map-tutorial-hint">◈ CLICK AN AMBER HEX TO SEND YOUR SCOUT</div>
+
+        <!-- Double-click quick-move picker -->
+        <div id="quick-picker">
+          <div class="qp-title">QUICK MOVE — CHOOSE WHO:</div>
+          <div class="qp-btns" id="qp-btns"></div>
+        </div>
 
         <!-- Build button (above resource charts) -->
         <button id="build-btn" class="btn" onclick="openBuildPanel()">⚙ BUILD</button>
@@ -3207,6 +3233,7 @@ function handleMapTap(sx,sy) {
 
 function openHexInfo(h) {
   hideMapTutorial();
+  hideQuickPicker();
   const el=document.getElementById('hex-info');
   const ter=HEX_TERRAIN[h.terrain];
   document.getElementById('hi-title').textContent =
@@ -3642,6 +3669,65 @@ function closeRosterOverlay() {
 }
 
 // Map events
+// ── Double-click to move ──
+function hideQuickPicker() {
+  document.getElementById('quick-picker').style.display = 'none';
+}
+
+function showQuickMoverPicker(hex, movers) {
+  const el   = document.getElementById('quick-picker');
+  const btns = document.getElementById('qp-btns');
+  btns.innerHTML = '';
+  movers.forEach(p => {
+    const def = ROLE_DEFS[p.role];
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.style.cssText = 'font-size:11px;text-align:left;padding:5px 9px;';
+    btn.innerHTML = `${def.icon} <b>${p.name.split(' ')[0]}</b> <span style="color:var(--green-dim);font-size:9px;">${p.role}</span>`;
+    btn.addEventListener('click', () => { hideQuickPicker(); dispatchScoutTo(hex, p); });
+    btns.appendChild(btn);
+  });
+  // Cancel button
+  const cancel = document.createElement('button');
+  cancel.className = 'btn';
+  cancel.style.cssText = 'font-size:9px;padding:3px 8px;margin-top:4px;color:var(--green-dim);';
+  cancel.textContent = '[ CANCEL ]';
+  cancel.addEventListener('click', hideQuickPicker);
+  btns.appendChild(cancel);
+  el.style.display = 'block';
+}
+
+function handleMapDblTap(sx, sy) {
+  if (!G.mapUnlocked) return;
+  const wp  = s2w(sx, sy), h = p2h(wp.x, wp.y);
+  const key = hKey(h.q, h.r);
+  const hex = G.world[key];
+  if (!hex) return;
+
+  // Move-mode: same as single tap
+  if (pendingMovePerson) {
+    dispatchScoutTo(hex, pendingMovePerson);
+    return;
+  }
+
+  // Find everyone who can move to this hex
+  const thisKey = `${hex.q},${hex.r}`;
+  const movers  = G.people.filter(p => canPersonReachHex(p, hex) && p.missionHex !== thisKey);
+  if (movers.length === 0) return;
+  if (movers.length === 1) {
+    closeHexInfo();
+    dispatchScoutTo(hex, movers[0]);
+  } else {
+    closeHexInfo();
+    showQuickMoverPicker(hex, movers);
+  }
+}
+
+canvas.addEventListener('dblclick', e => {
+  const p = canvasPos(e.clientX, e.clientY);
+  handleMapDblTap(p.x, p.y);
+});
+
 canvas.addEventListener('mousedown',e=>{
   const p=canvasPos(e.clientX,e.clientY);
   isDragging=false;
@@ -3805,8 +3891,12 @@ document.addEventListener('touchstart', initAudio, { once: true });
 // ESC cancels build / move placement modes
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if (pendingBuildType) { cancelBuildMode(); toast('BUILD CANCELLED'); }
-    if (pendingMovePerson) { cancelMoveMode(); toast('MOVE CANCELLED'); }
+    if (pendingBuildType)  { cancelBuildMode();    toast('BUILD CANCELLED'); }
+    if (pendingMovePerson) { cancelMoveMode();     toast('MOVE CANCELLED'); }
+    hideQuickPicker();
+    closeBuildPanel();
+    closeHexInfo();
+    closeRosterOverlay();
   }
 });
 
