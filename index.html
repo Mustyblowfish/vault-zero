@@ -3319,7 +3319,11 @@ function openHexInfo(h) {
     acts.appendChild(btn);
   }
 
-  el.classList.toggle('action-ready', !!personHere);
+  // Pulse if: person at hex has actions, OR hex has dispatch options available
+  const thisHexKeyForPulse = `${h.q},${h.r}`;
+  const hasDispatchOptions = !G.scoutCooldown && isReachableForScout(h) && G.phase >= 2 &&
+    G.people.some(p => canPersonReachHex(p, h) && p.missionHex !== thisHexKeyForPulse);
+  el.classList.toggle('action-ready', !!personHere || hasDispatchOptions);
   el.classList.add('show');
 }
 
