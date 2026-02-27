@@ -1732,16 +1732,16 @@ const SURVIVOR_TRAITS = [
 
 // Role definitions: icon, label, stats (1-5), description
 const ROLE_DEFS = {
-  scout:     { icon:'◈', label:'Scout',          speed:5, recon:3, combat:2, morale:2, desc:'Fast and quiet. Covers ground quickly.' },
-  engineer:  { icon:'⚙', label:'Engineer',       speed:2, recon:4, combat:1, morale:2, desc:'Finds and fixes things others miss.' },
-  medic:     { icon:'✚', label:'Medic',          speed:2, recon:2, combat:1, morale:5, desc:'Keeps people alive and hopeful.' },
-  soldier:   { icon:'⚔', label:'Soldier',        speed:3, recon:2, combat:5, morale:3, desc:'Trained for danger. Protects the group.' },
-  botanist:  { icon:'❧', label:'Botanist',       speed:2, recon:5, combat:1, morale:3, desc:'Reads the land. Finds food and resources.' },
-  geologist: { icon:'◆', label:'Geologist',      speed:2, recon:4, combat:1, morale:2, desc:'Spots ore, water, and stable terrain.' },
-  mechanic:  { icon:'⛭', label:'Mechanic',       speed:3, recon:3, combat:2, morale:2, desc:'Keeps equipment running in the field.' },
-  archivist: { icon:'📜', label:'Archivist',     speed:1, recon:5, combat:1, morale:4, desc:'Documents everything. Knowledge is survival.' },
-  farmer:    { icon:'◇', label:'Farmer',         speed:2, recon:3, combat:1, morale:4, desc:'Grows food. Knows soil and season.' },
-  doctor:    { icon:'⊕', label:'Doctor',         speed:2, recon:2, combat:1, morale:5, desc:'Rare. Irreplaceable. Never send alone.' },
+  scout:    { icon:'◈', label:'Scout',    speed:5, recon:4, combat:2, morale:2,
+              desc:'Moves 2 hexes. Reveals 4 hexes of fog on arrival. Best chance of finding survivors in the field.' },
+  farmer:   { icon:'◇', label:'Farmer',   speed:2, recon:4, combat:1, morale:4,
+              desc:'+2 food per turn while at the vault. Expert forager and hunter — brings back far more than others.' },
+  soldier:  { icon:'⚔', label:'Soldier',  speed:3, recon:2, combat:5, morale:3,
+              desc:'Survives 1 extra day without food. Stronger in hunts and dangerous ruins. Protects the group.' },
+  mechanic: { icon:'⛭', label:'Mechanic', speed:3, recon:3, combat:2, morale:2,
+              desc:'25% off all construction costs when at the vault. Salvages more metals and timber than anyone.' },
+  doctor:   { icon:'⊕', label:'Doctor',   speed:2, recon:2, combat:1, morale:5,
+              desc:'While alive, all survivors endure 1 extra day of starvation. Irreplaceable. Never send alone.' },
 };
 const ROLE_KEYS = Object.keys(ROLE_DEFS);
 
@@ -2044,9 +2044,10 @@ function updateCharts() {
 
   // ── Turn-end delta indicators for food & water ──
   if (G.mapUnlocked) {
-    const growLights = Object.values(G.world).filter(h => h.building === 'GROWLIGHT').length;
-    const collectors = Object.values(G.world).filter(h => h.building === 'COLLECTOR').length;
-    const foodDelta  = (growLights * 3) - (G.population * 1);
+    const growLights     = Object.values(G.world).filter(h => h.building === 'GROWLIGHT').length;
+    const collectors     = Object.values(G.world).filter(h => h.building === 'COLLECTOR').length;
+    const farmersInVault = G.people.filter(p => p.role === 'farmer' && p.status === 'vault').length;
+    const foodDelta  = (growLights * 3 + farmersInVault * 2) - (G.population * 1);
     const waterDelta = (collectors * 3 + (G.systems.water ? 2 : 0)) - Math.max(1, G.population);
 
     function setDelta(id, delta, currentVal) {
@@ -2424,7 +2425,8 @@ function nextTurn() {
   G.wood = Math.max(0, G.wood - woodBurned);
   const powerGen    = 3 + solarPanels * 4 + woodBurned * 6;
   const powerCost   = G.population * 1 + growLights * 2;
-  const foodGen     = growLights * 3;
+  const farmersInVault = G.people.filter(p => p.role === 'farmer' && p.status === 'vault').length;
+  const foodGen     = growLights * 3 + farmersInVault * 2;
   const waterGen    = collectors * 3 + (G.systems.water ? 2 : 0);
   const foodCost    = G.population * 1;
   const waterCost   = Math.max(1, G.population);
@@ -2444,10 +2446,16 @@ function nextTurn() {
 
   // ── Starvation system ──
   if (G.food <= 0) {
+    const doctorAlive = G.people.some(p => p.role === 'doctor');
+    if (doctorAlive && G.people.length > 1) {
+      log('⊕ DOCTOR is rationing what little remains. holding people together.', 'story', 100);
+    }
     const dying = [];
     G.people.forEach(p => {
       p.starvingDays = (p.starvingDays || 0) + 1;
-      if (p.starvingDays >= 2) dying.push(p);
+      // Soldiers endure 1 extra day; doctor alive grants everyone +1
+      const threshold = (p.role === 'soldier' ? 3 : 2) + (doctorAlive ? 1 : 0);
+      if (p.starvingDays >= threshold) dying.push(p);
     });
 
     if (dying.length > 0) {
@@ -2493,7 +2501,7 @@ function nextTurn() {
 
   log(`── CYCLE ${G.turn} ──────────────────────────`, 'header-line');
   log(`power: ${powerGen>0?'+':''}${powerGen-powerCost} → ${G.power}%  |  solar panels: ${solarPanels}`, 'sys', 150);
-  log(`food: ${foodGen-foodCost>=0?'+':''}${foodGen-foodCost} → ${G.food}  |  water: ${waterGen-waterCost>=0?'+':''}${waterGen-waterCost} → ${G.water}`, 'sys', 300);
+  log(`food: ${foodGen-foodCost>=0?'+':''}${foodGen-foodCost} → ${G.food}${farmersInVault>0?`  [◇ farmer +${farmersInVault*2}]`:''}  |  water: ${waterGen-waterCost>=0?'+':''}${waterGen-waterCost} → ${G.water}`, 'sys', 300);
   // Flag starving characters in the cycle report
   const starving = G.people.filter(p => (p.starvingDays || 0) > 0);
   if (starving.length > 0) log(`STARVING: ${starving.map(p=>p.name.split(' ')[0]).join(', ')}`, 'error', 380);
@@ -2894,8 +2902,10 @@ function dispatchScoutTo(hex, person) {
     scout.animX = null; scout.animY = null;
     const person = G.people.find(p=>p.id===scout.personId);
     if (person) { person.status = 'mission'; }  // arrived at destination
-    // Recon range bonus based on person stats
-    const reconRange = person ? Math.min(3, 1 + Math.floor((person.stats.recon-1)/2)) : 2;
+    // Scouts reveal 4 hexes; others scale with recon stat (1–3)
+    const reconRange = person
+      ? (person.role === 'scout' ? 4 : Math.min(3, 1 + Math.floor((person.stats.recon-1)/2)))
+      : 2;
     revealAround(hex.q, hex.r, reconRange);
     hex.explored = true;
     G.discoveries++;
@@ -3244,14 +3254,25 @@ function openBuildPanel() {
   hdr.appendChild(closeBtn);
   body.appendChild(hdr);
 
+  const hasMechanic = G.people.some(p => p.role === 'mechanic' && p.status === 'vault');
+
   const hint = document.createElement('div');
-  hint.style.cssText='font-size:9px;color:var(--green-dim);letter-spacing:1px;margin-bottom:8px;line-height:1.5;';
+  hint.style.cssText='font-size:9px;color:var(--green-dim);letter-spacing:1px;margin-bottom:6px;line-height:1.5;';
   hint.textContent='Select a structure, then click an explored field hex to place it.';
   body.appendChild(hint);
 
+  if (hasMechanic) {
+    const disc = document.createElement('div');
+    disc.style.cssText='font-size:9px;color:var(--amber);letter-spacing:1px;margin-bottom:8px;';
+    disc.textContent='⛭ MECHANIC IN VAULT — 25% CONSTRUCTION DISCOUNT';
+    body.appendChild(disc);
+  }
+
   for (const [bk, bld] of Object.entries(HEX_BUILDINGS)) {
-    const canAfford = G.metals >= bld.costMetals && G.wood >= bld.costWood;
-    const costStr = [bld.costMetals>0?`${bld.costMetals} metals`:'', bld.costWood>0?`${bld.costWood} wood`:''].filter(Boolean).join(', ');
+    const costMetals = hasMechanic ? Math.floor(bld.costMetals * 0.75) : bld.costMetals;
+    const costWood   = hasMechanic ? Math.floor(bld.costWood   * 0.75) : bld.costWood;
+    const canAfford  = G.metals >= costMetals && G.wood >= costWood;
+    const costStr    = [costMetals>0?`${costMetals} metals`:'', costWood>0?`${costWood} wood`:''].filter(Boolean).join(', ');
     const btn = document.createElement('button');
     btn.className = 'btn';
     btn.style.cssText = 'font-size:11px;text-align:left;padding:7px 10px;margin-top:4px;width:100%;';
@@ -3294,16 +3315,33 @@ function handleBuildPlacement(hex) {
   if (!hex.explored)           { toast('HEX NOT EXPLORED'); cancelBuildMode(); return; }
   if (hex.building)            { toast('ALREADY BUILT HERE'); cancelBuildMode(); return; }
   if (hex.terrain==='WATER' && pendingBuildType==='GROWLIGHT') { toast('CANNOT BUILD GROW LIGHTS ON WATER'); cancelBuildMode(); return; }
-  if (G.metals < bld.costMetals || G.wood < bld.costWood) { toast('NOT ENOUGH RESOURCES'); cancelBuildMode(); return; }
+  const hasMechanic = G.people.some(p => p.role === 'mechanic' && p.status === 'vault');
+  const costMetals  = hasMechanic ? Math.floor(bld.costMetals * 0.75) : bld.costMetals;
+  const costWood    = hasMechanic ? Math.floor(bld.costWood   * 0.75) : bld.costWood;
 
-  G.metals -= bld.costMetals;
-  G.wood   -= bld.costWood;
+  if (G.metals < costMetals || G.wood < costWood) { toast('NOT ENOUGH RESOURCES'); cancelBuildMode(); return; }
+
+  G.metals -= costMetals;
+  G.wood   -= costWood;
   hex.building = pendingBuildType;
   updateHUD(); drawMap();
   log(`[ ${bld.label.toUpperCase()} CONSTRUCTED ]`, 'action');
+  if (hasMechanic) log(`⛭ mechanic discount applied. -25% materials.`, 'story', 200);
   log(`${bld.desc}`, 'story', 400);
   logGap(); G.discoveries++;
   cancelBuildMode();
+}
+
+// Role-specific action bonuses
+function getRoleActionBonus(person, actKey) {
+  const table = {
+    farmer:   { forage: 3, hunt: 2, gather_timber: 1, chop_wood: 1 },
+    mechanic: { scavenge_metals: 3, mine_ore: 3, chop_wood: 2, gather_timber: 1 },
+    soldier:  { hunt: 2, scavenge_metals: 1, mine_ore: 1 },
+    scout:    { forage: 1 },
+    doctor:   {},
+  };
+  return ((table[person.role] || {})[actKey]) || 0;
 }
 
 function performHexAction(person, hex, actKey) {
@@ -3311,28 +3349,31 @@ function performHexAction(person, hex, actKey) {
   if (!ad || person.actionsLeft <= 0) return;
   person.actionsLeft = 0;
 
-  // Calculate yield with stat bonus
-  const statBonus = ad.recon ? Math.floor((person.stats.recon - 1) * 0.5)
+  // Calculate yield: stat bonus + role bonus + random variance
+  const statBonus = ad.recon  ? Math.floor((person.stats.recon  - 1) * 0.5)
                   : ad.combat ? Math.floor((person.stats.combat - 1) * 0.5) : 0;
-  const amount = Math.max(1, ad.base + statBonus + Math.floor(Math.random() * 3));
+  const roleBonus = getRoleActionBonus(person, actKey);
+  const amount = Math.max(1, ad.base + statBonus + roleBonus + Math.floor(Math.random() * 3));
+  const roleBonusTxt = roleBonus > 0 ? ` [${ROLE_DEFS[person.role].icon}+${roleBonus}]` : '';
 
   log(`[ ${person.name.split(' ')[0].toUpperCase()} — ${ad.label.toUpperCase()} ]`, 'action');
 
   if (ad.yields === 'food') {
     G.food += amount;
-    log(`found ${amount} food.`, 'story', 300);
+    log(`found ${amount} food.${roleBonusTxt}`, 'story', 300);
   } else if (ad.yields === 'water') {
     G.water += amount;
     log(`collected ${amount} units of water.`, 'story', 300);
   } else if (ad.yields === 'metals') {
     G.metals += amount;
-    log(`scavenged ${amount} metals.`, 'story', 300);
+    log(`scavenged ${amount} metals.${roleBonusTxt}`, 'story', 300);
   } else if (ad.yields === 'wood') {
     G.wood += amount;
-    log(`gathered ${amount} wood.`, 'story', 300);
+    log(`gathered ${amount} wood.${roleBonusTxt}`, 'story', 300);
   } else if (ad.yields === 'morale') {
-    // Chance of finding survivor
-    const chance = 0.1 + (person.stats.recon - 1) * 0.05;
+    // Scout and doctor have much higher survivor-find chance
+    const roleSearchBonus = { scout: 0.20, doctor: 0.12 }[person.role] || 0;
+    const chance = 0.1 + (person.stats.recon - 1) * 0.05 + roleSearchBonus;
     if (Math.random() < chance) {
       const npc = generatePerson();
       G.people.push(npc);
