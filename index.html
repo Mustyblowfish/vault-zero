@@ -977,14 +977,21 @@ body::before {
 }
 .mob-tab.active { color: var(--green); border-top: 1px solid var(--green); margin-top: -1px; }
 
-/* ── Mobile map: overlay buttons (End Day + Roster) ── */
-#map-end-day-btn, #map-roster-btn { display: none; }
+/* ── Mobile map: stacked action buttons (Build / Roster / End Day) ── */
+#map-mobile-btns { display: none; }
 @media (max-width: 700px) {
-  /* Shared styles for both map overlay buttons */
-  #map-end-day-btn, #map-roster-btn {
-    display: block;
+  #map-mobile-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     position: absolute;
     bottom: 14px;
+    left: 14px;
+    z-index: 22;
+    align-items: flex-start;
+  }
+  #map-mobile-btns button {
+    display: block;
     background: rgba(0,20,5,0.92);
     border: 1px solid var(--green-dim);
     color: var(--green);
@@ -994,11 +1001,8 @@ body::before {
     letter-spacing: 2px;
     cursor: pointer;
     touch-action: manipulation;
-    z-index: 22;
     transition: border-color 0.15s, color 0.15s;
   }
-  #map-end-day-btn { left: 14px; }
-  #map-roster-btn  { right: 14px; }
   #map-end-day-btn:disabled {
     color: var(--green-dark);
     border-color: var(--green-dark);
@@ -1459,11 +1463,12 @@ body::before {
         <!-- Mobile: floating log messages on map -->
         <div id="map-log-feed"></div>
 
-        <!-- Mobile: End Day button always visible on map tab -->
-        <button id="map-end-day-btn" disabled onclick="nextTurn()">[ END DAY ]</button>
-
-        <!-- Mobile: Roster button always visible on map tab -->
-        <button id="map-roster-btn" onclick="openRosterOverlay()">[ ROSTER ]</button>
+        <!-- Mobile: stacked action buttons (Build top → Roster → End Day bottom) -->
+        <div id="map-mobile-btns">
+          <button id="map-build-btn"    onclick="openBuildPanel()">[ BUILD ]</button>
+          <button id="map-roster-btn"   onclick="openRosterOverlay()">[ ROSTER ]</button>
+          <button id="map-end-day-btn"  disabled onclick="nextTurn()">[ END DAY ]</button>
+        </div>
 
         <!-- Combat resolution popup -->
         <div id="combat-popup">
@@ -4073,6 +4078,10 @@ function pickEncounter(terrain) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// Set while text is being revealed; null when choices are showing.
+// Calling it skips all pending text instantly.
+let encounterSkipFn = null;
+
 function showEncounter(enc, hex, person) {
   const overlay = document.getElementById('encounter-overlay');
   const headerEl = document.getElementById('encounter-header');
@@ -4086,6 +4095,10 @@ function showEncounter(enc, hex, person) {
   choicesEl.innerHTML = '';
 
   overlay.classList.add('active');
+
+  // Tap anywhere during text reveal to skip straight to choices
+  overlay.onclick = () => { if (encounterSkipFn) encounterSkipFn(); };
+
   revealEncounterLines(enc.text, textEl, () => {
     showEncounterChoices(enc.choices, choicesEl, textEl, hex, person);
   });
@@ -4093,15 +4106,40 @@ function showEncounter(enc, hex, person) {
 
 function revealEncounterLines(lines, el, onDone) {
   let i = 0;
+  let currentIv = null;
+  let currentP = null;
+  let currentLine = '';
+  let currentChar = 0;
+
+  function skip() {
+    if (currentIv) { clearInterval(currentIv); currentIv = null; }
+    // Complete the current line if mid-reveal
+    if (currentP) currentP.textContent = currentLine;
+    // Dump all remaining lines instantly
+    while (i < lines.length) {
+      const p = document.createElement('p');
+      p.textContent = lines[i++];
+      el.appendChild(p);
+    }
+    encounterSkipFn = null;
+    onDone();
+  }
+
+  encounterSkipFn = skip;
+
   function nextLine() {
-    if (i >= lines.length) { setTimeout(onDone, 300); return; }
-    const p = document.createElement('p');
-    el.appendChild(p);
-    let c = 0;
-    const line = lines[i++];
-    const iv = setInterval(() => {
-      if (c >= line.length) { clearInterval(iv); setTimeout(nextLine, 180); return; }
-      p.textContent += line[c++];
+    if (i >= lines.length) { encounterSkipFn = null; setTimeout(onDone, 200); return; }
+    currentP = document.createElement('p');
+    el.appendChild(currentP);
+    currentChar = 0;
+    currentLine = lines[i++];
+    currentIv = setInterval(() => {
+      if (currentChar >= currentLine.length) {
+        clearInterval(currentIv); currentIv = null;
+        setTimeout(nextLine, 160);
+        return;
+      }
+      currentP.textContent += currentLine[currentChar++];
     }, 22);
   }
   nextLine();
@@ -4174,7 +4212,9 @@ function applyEncounterOutcome(outcome, textEl, hex, person) {
 }
 
 function closeEncounter() {
+  encounterSkipFn = null;
   const overlay = document.getElementById('encounter-overlay');
+  overlay.onclick = null;
   overlay.classList.remove('active');
   // Re-open hex-info if player tapped a hex (selectedH preserved)
   if (selectedH) setTimeout(() => openHexInfo(selectedH), 300);
