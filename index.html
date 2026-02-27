@@ -1941,6 +1941,85 @@ const ROLE_DEFS = {
 };
 const ROLE_KEYS = Object.keys(ROLE_DEFS);
 
+// ── Pixel face portraits (seeded per character name) ──
+function faceRng(seed) {
+  let s = seed;
+  return function() { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+function nameToFaceSeed(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = Math.imul(31, h) + name.charCodeAt(i) | 0;
+  return Math.abs(h) || 1;
+}
+const FACE_PALETTES = {
+  scout:   { skin:'#1a4020', hair:'#00ff41', eye:'#00cc33', shadow:'#0d2010', hi:'#33ff66' },
+  farmer:  { skin:'#1a3a18', hair:'#ffb000', eye:'#00cc33', shadow:'#0a1e0a', hi:'#2dff55' },
+  soldier: { skin:'#1c3e1c', hair:'#00aa2a', eye:'#ff3030', shadow:'#0d2010', hi:'#33ff66' },
+  doctor:  { skin:'#1a4020', hair:'#aaffcc', eye:'#00ffcc', shadow:'#0d2010', hi:'#55ffaa' },
+};
+function drawFacePortrait(canvas, name, role) {
+  const SCALE = 2, W = 48, H = 48;
+  canvas.width = W * SCALE; canvas.height = H * SCALE;
+  const ctx = canvas.getContext('2d');
+  const rng = faceRng(nameToFaceSeed(name));
+  const pal = FACE_PALETTES[role] || FACE_PALETTES.scout;
+  function px(x, y, col) { ctx.fillStyle = col; ctx.fillRect(x*SCALE, y*SCALE, SCALE, SCALE); }
+  ctx.fillStyle = '#050d05'; ctx.fillRect(0, 0, W*SCALE, H*SCALE);
+  const faceW = 10 + Math.floor(rng()*3), faceH = 12 + Math.floor(rng()*3);
+  const faceX = Math.floor((W-faceW)/2), faceY = Math.floor((H-faceH)/2) - 2;
+  const hairLen = 1 + Math.floor(rng()*3), hairStyle = Math.floor(rng()*3);
+  const hasBeard = rng() > 0.65, browThick = rng() > 0.5 ? 2 : 1;
+  const noseStyle = Math.floor(rng()*3), mouthStyle = Math.floor(rng()*3);
+  const scarFace = rng() > 0.8;
+  // Face shape
+  for (let y=0; y<faceH; y++) for (let x=0; x<faceW; x++) {
+    const edge = (y<2||y>=faceH-2)?1:0;
+    if (x<edge||x>=faceW-edge) continue;
+    px(faceX+x, faceY+y, y>faceH*0.7 ? pal.shadow : pal.skin);
+  }
+  // Hair
+  for (let y=0; y<hairLen+1; y++) for (let x=0; x<faceW; x++) {
+    if (hairStyle===1 && x>=faceW-2 && y>0) continue;
+    if (hairStyle===2 && y>0 && (x<1||x>=faceW-1)) continue;
+    px(faceX+x, faceY-1+y, pal.hair);
+  }
+  for (let x=1; x<Math.floor(faceW*0.6); x++) px(faceX+x, faceY-1, pal.hi);
+  // Eyebrows
+  const browY=faceY+2, eyeL=faceX+1, eyeR=faceX+faceW-3;
+  for (let b=0; b<browThick; b++) {
+    px(eyeL,browY-b,pal.hair); px(eyeL+1,browY-b,pal.hair);
+    px(eyeR,browY-b,pal.hair); px(eyeR+1,browY-b,pal.hair);
+  }
+  // Eyes
+  const eyeY=faceY+4;
+  px(eyeL,eyeY,'#000a00'); px(eyeL+1,eyeY,pal.eye);
+  px(eyeR,eyeY,'#000a00'); px(eyeR+1,eyeY,pal.eye);
+  px(eyeL,eyeY,pal.hi); px(eyeR+1,eyeY,pal.hi);
+  // Nose
+  const noseX=faceX+Math.floor(faceW/2), noseY=faceY+6;
+  if (noseStyle===0) { px(noseX,noseY+1,pal.shadow); }
+  else if (noseStyle===1) { px(noseX,noseY,pal.shadow); px(noseX,noseY+1,pal.shadow); }
+  else { px(noseX-1,noseY+1,pal.shadow); px(noseX,noseY+1,pal.shadow); px(noseX,noseY,pal.shadow); }
+  // Mouth
+  const mouthY=faceY+9, mouthX=faceX+Math.floor(faceW/2)-1;
+  if (mouthStyle===0) { px(mouthX,mouthY,'#003010'); px(mouthX+1,mouthY,'#003010'); }
+  else if (mouthStyle===1) { px(mouthX-1,mouthY+1,pal.shadow); px(mouthX,mouthY,'#003010'); px(mouthX+1,mouthY,'#003010'); px(mouthX+2,mouthY+1,pal.shadow); }
+  else { px(mouthX-1,mouthY,pal.shadow); px(mouthX,mouthY+1,'#003010'); px(mouthX+1,mouthY+1,'#003010'); px(mouthX+2,mouthY,pal.shadow); }
+  // Beard
+  if (hasBeard) for (let x=1; x<faceW-1; x++) {
+    if (rng()>0.4) px(faceX+x,faceY+faceH-2,pal.hair);
+    if (rng()>0.6) px(faceX+x,faceY+faceH-3,pal.hair);
+  }
+  // Scar
+  if (scarFace) {
+    const scarX=faceX+2+Math.floor(rng()*(faceW-4));
+    px(scarX,faceY+3,'#ff3030'); px(scarX,faceY+4,'#ff3030'); px(scarX+1,faceY+5,'#ff3030');
+  }
+  // Neck
+  const neckW=Math.floor(faceW*0.4), neckX=faceX+Math.floor((faceW-neckW)/2);
+  for (let y=0; y<3; y++) for (let x=0; x<neckW; x++) px(neckX+x,faceY+faceH+y,pal.shadow);
+}
+
 // ── Enemy unit definitions ──
 const ENEMY_TYPES = {
   raider: { icon:'⚔', label:'Raider', attack:2, defence:1, maxHp:3, color:'#ff3030', minTurn:5  },
@@ -3714,13 +3793,26 @@ function openHexInfo(h) {
   const personHere = G.people.find(p => p.missionHex === hexKey && p.status === 'mission' && p.actionsLeft > 0);
   if (h.explored && personHere) {
     const availActions = HEX_ACTIONS[h.terrain] || ['forage','search_survivors'];
-    const aLabel = document.createElement('div');
-    aLabel.style.cssText='font-size:10px;color:var(--green-dim);letter-spacing:2px;margin:6px 0 3px;';
+
+    // Person portrait header
+    const personHeader = document.createElement('div');
+    personHeader.style.cssText = 'display:flex;gap:8px;align-items:center;margin:6px 0 4px;padding-top:6px;border-top:1px solid #003310;';
+    const hiCanvas = document.createElement('canvas');
+    hiCanvas.style.cssText = 'image-rendering:pixelated;display:block;width:36px;height:36px;flex-shrink:0;border:1px solid #003310;';
+    const hiMeta = document.createElement('div');
     const woundStr = (personHere.wounds||0) > 0
-      ? ` ⚠ WOUNDS: ${'●'.repeat(personHere.wounds||0)}${'○'.repeat(Math.max(0,3-(personHere.wounds||0)))}`
+      ? `<div style="font-size:9px;color:var(--red);letter-spacing:1px;margin-top:1px;">WOUNDS: ${'●'.repeat(personHere.wounds||0)}${'○'.repeat(Math.max(0,3-(personHere.wounds||0)))}</div>`
       : '';
-    aLabel.textContent = `${personHere.name.split(' ')[0].toUpperCase()} — CHOOSE ACTION:${woundStr}`;
-    if ((personHere.wounds||0) > 0) aLabel.style.color = 'var(--red)';
+    hiMeta.innerHTML = `<div style="font-size:11px;color:var(--green);letter-spacing:1px;">${personHere.name.split(' ')[0].toUpperCase()}</div>
+      <div style="font-size:9px;color:var(--green-dim);letter-spacing:1px;">${personHere.role}</div>${woundStr}`;
+    personHeader.appendChild(hiCanvas);
+    personHeader.appendChild(hiMeta);
+    acts.appendChild(personHeader);
+    drawFacePortrait(hiCanvas, personHere.name, personHere.role);
+
+    const aLabel = document.createElement('div');
+    aLabel.style.cssText='font-size:10px;color:var(--green-dim);letter-spacing:2px;margin:2px 0 3px;';
+    aLabel.textContent = 'CHOOSE ACTION:';
     acts.appendChild(aLabel);
     availActions.forEach(actKey => {
       const ad = ACTION_DEFS[actKey];
@@ -4046,7 +4138,20 @@ function openRosterOverlay() {
       }
       const div = document.createElement('div');
       div.className = 'roster-person';
-      div.innerHTML = `
+      div.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
+
+      // Portrait
+      const portraitWrap = document.createElement('div');
+      portraitWrap.style.cssText = 'flex-shrink:0;width:48px;height:48px;border:1px solid #003310;overflow:hidden;background:#050d05;';
+      const faceCanvas = document.createElement('canvas');
+      faceCanvas.style.cssText = 'image-rendering:pixelated;display:block;width:48px;height:48px;';
+      portraitWrap.appendChild(faceCanvas);
+      div.appendChild(portraitWrap);
+
+      // Info
+      const info = document.createElement('div');
+      info.style.cssText = 'flex:1;min-width:0;';
+      info.innerHTML = `
         <div class="roster-person-name">
           ${def.icon||'◈'} ${p.name}
           ${p.isPlayer ? '<span style="color:#ffb000;font-size:11px;margin-left:6px;">YOU</span>' : ''}
@@ -4055,8 +4160,13 @@ function openRosterOverlay() {
         <div class="roster-person-role">${p.role}${p.trait ? ` — ${p.trait}` : ''}</div>
         <div class="roster-person-stats">
           SPD ${statBar(p.stats.speed)}  RCN ${statBar(p.stats.recon)}  CMB ${statBar(p.stats.combat)}  MRL ${statBar(p.stats.morale)}
-        </div>`;
+        </div>
+        ${(p.wounds||0)>0 ? `<div style="font-size:11px;color:var(--red);letter-spacing:1px;margin-top:2px;">WOUNDS: ${'●'.repeat(p.wounds||0)}${'○'.repeat(Math.max(0,3-(p.wounds||0)))}</div>` : ''}`;
+      div.appendChild(info);
       body.appendChild(div);
+
+      // Draw face AFTER appended to DOM
+      drawFacePortrait(faceCanvas, p.name, p.role);
     });
   }
 

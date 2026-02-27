@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pixel Face Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+  body { background: #020602; color: #00ff41; font-family: 'Share Tech Mono', monospace; display: flex; flex-wrap: wrap; gap: 20px; padding: 30px; align-items: flex-start; }
+  .card {
+    background: rgba(0,15,0,0.9);
+    border: 1px solid #00aa2a;
+    width: 160px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .card-top { position: relative; }
+  canvas { image-rendering: pixelated; display: block; width: 160px; height: 160px; background: #050d05; }
+  .card-id-tag {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,8,0,0.82);
+    padding: 4px 8px;
+    border-top: 1px solid #003310;
+  }
+  .card-name { font-family: 'VT323', monospace; font-size: 24px; color: #00ff41; letter-spacing: 2px; line-height: 1.1; }
+  .card-role { font-size: 10px; color: #00aa2a; letter-spacing: 2px; }
+  .card-body { padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; }
+  .card-trait { font-size: 10px; color: #005500; letter-spacing: 1px; line-height: 1.5; border-top: 1px solid #003310; padding-top: 5px; }
+  .card-stats { font-size: 10px; color: #00aa2a; letter-spacing: 1px; }
+  .wounds { color: #ff3030; font-size: 11px; }
+</style>
+</head>
+<body>
+<script>
+// Seeded random — same seed = same face every time
+function seededRand(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function nameToSeed(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = Math.imul(31, h) + name.charCodeAt(i) | 0;
+  return Math.abs(h) || 1;
+}
+
+// Colour palette — terminal green tones + amber for soldier
+const PALETTES = {
+  scout:   { skin:'#1a4020', hair:'#00ff41', eye:'#00cc33', shadow:'#0d2010', hi:'#33ff66' },
+  farmer:  { skin:'#1a3a18', hair:'#ffb000', eye:'#00cc33', shadow:'#0a1e0a', hi:'#2dff55' },
+  soldier: { skin:'#1c3e1c', hair:'#00aa2a', eye:'#ff3030', shadow:'#0d2010', hi:'#33ff66' },
+  doctor:  { skin:'#1a4020', hair:'#aaffcc', eye:'#00ffcc', shadow:'#0d2010', hi:'#55ffaa' },
+};
+
+function drawFace(canvas, name, role) {
+  const SCALE = 5;   // each pixel = 5×5 real px → 240×240 internal, displayed at 160×160 via CSS
+  const W = 48, H = 48;
+  canvas.width  = W * SCALE;
+  canvas.height = H * SCALE;
+
+  const ctx = canvas.getContext('2d');
+  const rng  = seededRand(nameToSeed(name));
+  const pal  = PALETTES[role] || PALETTES.scout;
+
+  function px(x, y, col) {
+    ctx.fillStyle = col;
+    ctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+  }
+
+  // ── Background ──
+  ctx.fillStyle = '#050d05';
+  ctx.fillRect(0, 0, W * SCALE, H * SCALE);
+
+  // ── Randomised features ──
+  const faceW   = 10 + Math.floor(rng() * 3);   // 10–12
+  const faceH   = 12 + Math.floor(rng() * 3);   // 12–14
+  const faceX   = Math.floor((W - faceW) / 2);
+  const faceY   = Math.floor((H - faceH) / 2) - 2;
+  const hairLen = 1 + Math.floor(rng() * 3);     // 1–3 rows of hair
+  const hairStyle = Math.floor(rng() * 3);        // 0=full, 1=short, 2=fade
+  const eyeSpacing = 1 + Math.floor(rng() * 2);  // 1–2 gap between eyes
+  const hasBeard  = rng() > 0.65;
+  const browThick = rng() > 0.5 ? 2 : 1;
+  const noseStyle = Math.floor(rng() * 3);        // 0=dot, 1=line, 2=L
+  const mouthStyle = Math.floor(rng() * 3);       // 0=straight, 1=slight smile, 2=frown
+  const scarFace  = rng() > 0.8;                  // rare scar
+
+  // ── Face shape ──
+  for (let y = 0; y < faceH; y++) {
+    for (let x = 0; x < faceW; x++) {
+      // Slightly narrow top and bottom corners for oval feel
+      const edge = (y < 2 || y >= faceH - 2) ? 1 : 0;
+      if (x < edge || x >= faceW - edge) continue;
+      const shade = y > faceH * 0.7 ? pal.shadow : pal.skin;
+      px(faceX + x, faceY + y, shade);
+    }
+  }
+
+  // ── Hair ──
+  for (let y = 0; y < hairLen + 1; y++) {
+    for (let x = 0; x < faceW; x++) {
+      if (hairStyle === 1 && x >= faceW - 2 && y > 0) continue; // short sides
+      if (hairStyle === 2 && y > 0 && (x < 1 || x >= faceW - 1)) continue; // fade
+      px(faceX + x, faceY - 1 + y, pal.hair);
+    }
+  }
+  // Hair highlight
+  for (let x = 1; x < Math.floor(faceW * 0.6); x++) {
+    px(faceX + x, faceY - 1, pal.hi);
+  }
+
+  // ── Eyebrows ──
+  const browY = faceY + 2;
+  const eyeL  = faceX + 1;
+  const eyeR  = faceX + faceW - 3;
+  for (let b = 0; b < browThick; b++) {
+    px(eyeL, browY - b, pal.hair);
+    px(eyeL + 1, browY - b, pal.hair);
+    px(eyeR, browY - b, pal.hair);
+    px(eyeR + 1, browY - b, pal.hair);
+  }
+
+  // ── Eyes ──
+  const eyeY = faceY + 4;
+  // Left eye
+  px(eyeL,     eyeY, '#000a00');
+  px(eyeL + 1, eyeY, pal.eye);
+  px(eyeL,     eyeY, '#000a00');
+  // Right eye
+  px(eyeR,     eyeY, '#000a00');
+  px(eyeR + 1, eyeY, pal.eye);
+  // Eye shine
+  px(eyeL,     eyeY, pal.hi);
+  px(eyeR + 1, eyeY, pal.hi);
+
+  // ── Nose ──
+  const noseX = faceX + Math.floor(faceW / 2);
+  const noseY = faceY + 6;
+  if (noseStyle === 0) {
+    px(noseX, noseY + 1, pal.shadow);
+  } else if (noseStyle === 1) {
+    px(noseX, noseY, pal.shadow);
+    px(noseX, noseY + 1, pal.shadow);
+  } else {
+    px(noseX - 1, noseY + 1, pal.shadow);
+    px(noseX,     noseY + 1, pal.shadow);
+    px(noseX,     noseY,     pal.shadow);
+  }
+
+  // ── Mouth ──
+  const mouthY = faceY + 9;
+  const mouthX = faceX + Math.floor(faceW / 2) - 1;
+  if (mouthStyle === 0) {
+    px(mouthX, mouthY, '#003010'); px(mouthX + 1, mouthY, '#003010');
+  } else if (mouthStyle === 1) {
+    px(mouthX - 1, mouthY + 1, pal.shadow);
+    px(mouthX,     mouthY, '#003010'); px(mouthX + 1, mouthY, '#003010');
+    px(mouthX + 2, mouthY + 1, pal.shadow);
+  } else {
+    px(mouthX - 1, mouthY, pal.shadow);
+    px(mouthX,     mouthY + 1, '#003010'); px(mouthX + 1, mouthY + 1, '#003010');
+    px(mouthX + 2, mouthY, pal.shadow);
+  }
+
+  // ── Beard (optional) ──
+  if (hasBeard) {
+    for (let x = 1; x < faceW - 1; x++) {
+      if (rng() > 0.4) px(faceX + x, faceY + faceH - 2, pal.hair);
+      if (rng() > 0.6) px(faceX + x, faceY + faceH - 3, pal.hair);
+    }
+  }
+
+  // ── Scar (rare) ──
+  if (scarFace) {
+    const scarX = faceX + 2 + Math.floor(rng() * (faceW - 4));
+    px(scarX, faceY + 3, '#ff3030');
+    px(scarX, faceY + 4, '#ff3030');
+    px(scarX + 1, faceY + 5, '#ff3030');
+  }
+
+  // ── Neck ──
+  const neckW = Math.floor(faceW * 0.4);
+  const neckX = faceX + Math.floor((faceW - neckW) / 2);
+  for (let y = 0; y < 3; y++) {
+    for (let x = 0; x < neckW; x++) {
+      px(neckX + x, faceY + faceH + y, pal.shadow);
+    }
+  }
+}
+
+// ── Sample characters ──
+const chars = [
+  { name:'Jay',    role:'scout',   trait:'"keeps to himself. reliable."', stats:'CMB ██░░░  SPD █████', wounds:0 },
+  { name:'Evie',   role:'doctor',  trait:'"calm under pressure."',        stats:'CMB █░░░░  MRL █████', wounds:1 },
+  { name:'Ramos',  role:'soldier', trait:'"been in worse situations."',   stats:'CMB █████  SPD ███░░', wounds:0 },
+  { name:'Suki',   role:'farmer',  trait:'"remembers the old gardens."',  stats:'CMB █░░░░  RCN ████░', wounds:2 },
+  { name:'Cross',  role:'scout',   trait:'"doesn\'t ask questions."',     stats:'CMB ██░░░  SPD ████░', wounds:0 },
+  { name:'Adisa',  role:'soldier', trait:'"last of her unit."',           stats:'CMB ████░  SPD ███░░', wounds:1 },
+];
+
+const ROLE_ICONS = { scout:'◈', farmer:'◇', soldier:'⚔', doctor:'⊕' };
+
+chars.forEach(c => {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  // Top section: full-width face portrait
+  const top = document.createElement('div');
+  top.className = 'card-top';
+
+  const canvas = document.createElement('canvas');
+  top.appendChild(canvas);
+
+  // Name/role tag overlaid at bottom of portrait
+  const tag = document.createElement('div');
+  tag.className = 'card-id-tag';
+  const nameEl = document.createElement('div');
+  nameEl.className = 'card-name';
+  nameEl.textContent = c.name;
+  const roleEl = document.createElement('div');
+  roleEl.className = 'card-role';
+  roleEl.textContent = `${ROLE_ICONS[c.role]} ${c.role.toUpperCase()}`;
+  tag.appendChild(nameEl);
+  tag.appendChild(roleEl);
+  top.appendChild(tag);
+  card.appendChild(top);
+
+  // Body section: stats + wounds + trait
+  const body = document.createElement('div');
+  body.className = 'card-body';
+
+  const statsEl = document.createElement('div');
+  statsEl.className = 'card-stats';
+  statsEl.textContent = c.stats;
+  body.appendChild(statsEl);
+
+  if (c.wounds > 0) {
+    const wEl = document.createElement('div');
+    wEl.className = 'wounds';
+    wEl.textContent = `WOUNDS: ${'●'.repeat(c.wounds)}${'○'.repeat(3 - c.wounds)}`;
+    body.appendChild(wEl);
+  }
+
+  const traitEl = document.createElement('div');
+  traitEl.className = 'card-trait';
+  traitEl.textContent = c.trait;
+  body.appendChild(traitEl);
+
+  card.appendChild(body);
+  document.body.appendChild(card);
+
+  // Draw AFTER card is in the DOM (canvas stable)
+  drawFace(canvas, c.name, c.role);
+});
+</script>
+</body>
+</html>
