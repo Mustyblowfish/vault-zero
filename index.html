@@ -572,6 +572,13 @@ body::before {
 #hex-info p { color: var(--green-dim); line-height: 1.6; margin-bottom: 6px; }
 #hex-info .hex-acts { display: flex; flex-direction: column; gap: 4px; }
 
+/* Build overlay — full-area transparent backdrop (click-outside-to-close) */
+#build-overlay {
+  position: absolute; inset: 0;
+  z-index: 22; display: none;
+  pointer-events: all; background: transparent;
+}
+
 /* Build panel — overlaps hex-info area, same styling */
 #build-panel {
   position: absolute;
@@ -584,10 +591,7 @@ body::before {
   max-height: 82%;
   overflow-y: auto;
   font-size: 11px;
-  display: none;
-  z-index: 22;
 }
-#build-panel.show { display: block; }
 #build-panel h4 { color: var(--green); margin-bottom: 8px; letter-spacing: 2px; font-size: 12px; border-bottom: 1px solid var(--green-dark); padding-bottom: 5px; }
 
 /* Build button — sits above resource charts */
@@ -1014,6 +1018,8 @@ body::before {
   }
   /* Hide the terminal roster button on mobile — replaced by map button */
   #btn-roster { display: none; }
+  /* Hide the old fixed build button on mobile — replaced by map-mobile-btns stack */
+  #build-btn { display: none !important; }
 }
 
 /* ── Mobile map: floating log feed ── */
@@ -1436,10 +1442,12 @@ body::before {
           <div class="hex-acts" id="hi-acts"></div>
         </div>
 
-        <!-- Dedicated BUILD panel -->
-        <div id="build-panel">
-          <h4>⚙ CONSTRUCT</h4>
-          <div id="build-panel-body"></div>
+        <!-- Dedicated BUILD panel (inside transparent backdrop for click-outside-to-close) -->
+        <div id="build-overlay">
+          <div id="build-panel">
+            <h4>⚙ CONSTRUCT</h4>
+            <div id="build-panel-body"></div>
+          </div>
         </div>
 
         <!-- Placement mode hint -->
@@ -4516,17 +4524,17 @@ function openBuildPanel() {
     body.appendChild(btn);
   }
 
-  panel.classList.add('show');
+  document.getElementById('build-overlay').style.display = 'block';
 }
 
 function closeBuildPanel() {
-  document.getElementById('build-panel').classList.remove('show');
+  document.getElementById('build-overlay').style.display = 'none';
   cancelBuildMode();
 }
 
 function enterBuildPlacement(buildKey, bld) {
   pendingBuildType = buildKey;
-  document.getElementById('build-panel').classList.remove('show');
+  document.getElementById('build-overlay').style.display = 'none';
   const hint = document.getElementById('build-cursor-hint');
   if (hint) hint.style.display = 'block';
   document.getElementById('canvas-wrap').style.cursor = 'crosshair';
@@ -4766,6 +4774,11 @@ function closeRosterOverlay() {
 // Close roster when clicking the transparent backdrop (outside the panel)
 document.getElementById('roster-overlay').addEventListener('click', e => {
   if (!document.getElementById('roster-panel').contains(e.target)) closeRosterOverlay();
+});
+
+// Close build panel when clicking the transparent backdrop (outside the panel)
+document.getElementById('build-overlay').addEventListener('click', e => {
+  if (!document.getElementById('build-panel').contains(e.target)) closeBuildPanel();
 });
 
 // Map events
