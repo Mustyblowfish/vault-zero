@@ -2102,7 +2102,7 @@ function updateCharts() {
     const animalPens     = Object.values(G.world).filter(h => h.building === 'ANIMAL_PEN').length;
     const farmersInVault = G.people.filter(p => p.role === 'farmer' && p.status === 'vault').length;
     const foodDelta  = (animalPens * 2 + growLights * 3 + farmersInVault * 2) - (G.population * 1);
-    const waterDelta = (collectors * 3 + (G.systems.water ? 2 : 0)) - G.population;
+    const waterDelta = (collectors * 3) - G.population;
 
     function setDelta(id, delta, currentVal) {
       const el = document.getElementById('delta-' + id);
@@ -2484,7 +2484,7 @@ function nextTurn() {
   const powerCost   = G.population * 1 + growLights * 2;
   const farmersInVault = G.people.filter(p => p.role === 'farmer' && p.status === 'vault').length;
   const foodGen     = animalPens * 2 + growLights * 3 + farmersInVault * 2;
-  const waterGen    = collectors * 3 + (G.systems.water ? 2 : 0);
+  const waterGen    = collectors * 3;
   const foodCost    = G.population * 1;
   const waterCost   = G.population;
 
@@ -2625,7 +2625,7 @@ const HEX_BUILDINGS = {
 const HEX_ACTIONS = {
   WASTE:    ['forage','search_survivors'],
   RUIN:     ['scavenge_metals','forage','search_survivors'],
-  FOREST:   ['forage','hunt','gather_timber','chop_wood','search_survivors'],
+  FOREST:   ['forage','hunt','chop_wood','search_survivors'],
   WATER:    ['collect_water','forage','search_survivors'],
   GRASS:    ['forage','hunt','search_survivors'],
   MOUNTAIN: ['mine_ore','forage','search_survivors'],
@@ -2638,7 +2638,6 @@ const ACTION_DEFS = {
   collect_water:    { label:'Collect Water',        icon:'≋', yields:'water',  base:4,  recon:false },
   scavenge_metals:  { label:'Scavenge Metals',      icon:'◆', yields:'metals', base:3,  recon:true  },
   mine_ore:         { label:'Mine Ore',             icon:'◆', yields:'metals', base:5,  recon:false },
-  gather_timber:    { label:'Gather Timber',        icon:'❧', yields:'wood',   base:3,  recon:false },
   chop_wood:        { label:'Chop Wood',            icon:'❧', yields:'wood',   base:4,  recon:false },
   search_survivors: { label:'Search for Survivors', icon:'◈', yields:'morale', base:0,  recon:true  },
 };
@@ -3455,8 +3454,8 @@ function handleBuildPlacement(hex) {
 // Role-specific action bonuses
 function getRoleActionBonus(person, actKey) {
   const table = {
-    farmer:   { forage: 3, hunt: 2, gather_timber: 1, chop_wood: 1 },
-    mechanic: { scavenge_metals: 3, mine_ore: 3, chop_wood: 2, gather_timber: 1 },
+    farmer:   { forage: 3, hunt: 2, chop_wood: 1 },
+    mechanic: { scavenge_metals: 3, mine_ore: 3, chop_wood: 3 },
     soldier:  { hunt: 2, scavenge_metals: 1, mine_ore: 1 },
     scout:    { forage: 1 },
     doctor:   {},
