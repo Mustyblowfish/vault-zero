@@ -120,6 +120,14 @@ body::before {
 }
 #menu-btn:hover { border-color: var(--green); color: var(--green); }
 
+/* Mobile header adjustments so menu-btn doesn't clip */
+@media (max-width: 700px) {
+  #header { gap: 6px; padding: 5px 10px; }
+  #header .logo { font-size: 18px; letter-spacing: 2px; }
+  .stat-row { gap: 5px; }
+  #phase-tag { display: none; }
+}
+
 #roster-overlay {
   position: absolute;
   bottom: 12px;
@@ -967,6 +975,76 @@ body::before {
 }
 .mob-tab.active { color: var(--green); border-top: 1px solid var(--green); margin-top: -1px; }
 
+/* ── Mobile map: End Day overlay button ── */
+#map-end-day-btn {
+  display: none; /* hidden by default; shown only on mobile */
+}
+@media (max-width: 700px) {
+  #map-end-day-btn {
+    display: block;
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    background: rgba(0,20,5,0.92);
+    border: 1px solid var(--green-dim);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 8px 18px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    touch-action: manipulation;
+    z-index: 22;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  #map-end-day-btn:disabled {
+    color: var(--green-dark);
+    border-color: var(--green-dark);
+    cursor: default;
+  }
+  #map-end-day-btn.endday-ready {
+    border-color: var(--green);
+    animation: action-panel-pulse 1.1s ease-in-out infinite;
+  }
+}
+
+/* ── Mobile map: floating log feed ── */
+#map-log-feed {
+  display: none; /* hidden by default */
+}
+@media (max-width: 700px) {
+  #map-log-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    position: absolute;
+    bottom: 70px;
+    left: 12px;
+    right: 90px; /* leave room for end-day btn */
+    pointer-events: none;
+    z-index: 21;
+  }
+}
+.map-log-entry {
+  background: rgba(2,8,2,0.88);
+  border-left: 2px solid var(--green-dim);
+  color: var(--green-dim);
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  animation: map-log-fade 3.5s ease forwards;
+  line-height: 1.4;
+}
+.map-log-entry.story { color: var(--green); border-left-color: var(--green); }
+.map-log-entry.warning { color: var(--amber); border-left-color: var(--amber); }
+.map-log-entry.alert  { color: var(--red);   border-left-color: var(--red); }
+@keyframes map-log-fade {
+  0%   { opacity: 0; transform: translateY(4px); }
+  12%  { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* ── Game Over overlay ── */
 #game-over {
   display: none;
@@ -1082,7 +1160,7 @@ body::before {
       <div class="stat">TURN <span class="val" id="s-turn">--</span></div>
     </div>
     <div id="phase-tag">INITIALISING</div>
-    <button id="dev-bypass-btn" onclick="DEV_SKIP=true;devSkipToMap()" style="background:rgba(80,0,0,0.4);border:1px solid #440000;color:#aa2222;font-family:'Share Tech Mono',monospace;font-size:10px;padding:3px 8px;cursor:pointer;letter-spacing:1px;margin-left:6px;" title="DEV ONLY — remove before ship">[ DEV: SKIP ]</button>
+    <button id="dev-bypass-btn" onclick="DEV_SKIP=true;devSkipToMap()" style="background:rgba(80,0,0,0.5);border:1px solid #660000;color:#cc2222;font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 7px;cursor:pointer;letter-spacing:1px;flex-shrink:0;" title="DEV — skip intro">TEST</button>
     <button id="menu-btn" onclick="toggleMenu()">[ MENU ]</button>
   </div>
 
@@ -1292,6 +1370,12 @@ body::before {
 
         <!-- Build button (above resource charts) -->
         <button id="build-btn" class="btn" onclick="openBuildPanel()">⚙ BUILD</button>
+
+        <!-- Mobile: floating log messages on map -->
+        <div id="map-log-feed"></div>
+
+        <!-- Mobile: End Day button always visible on map tab -->
+        <button id="map-end-day-btn" disabled onclick="nextTurn()">[ END DAY ]</button>
 
       </div>
     </div>
@@ -1962,6 +2046,8 @@ function addLine(text, type) {
   if (text) div.classList.add('log-active');
   logEl.appendChild(div);
   scrollLog();
+  // Mirror to map overlay on mobile
+  mapLogFlash(text, type);
 }
 
 // Call this to remove the cursor once all narrative is done
@@ -2002,6 +2088,7 @@ function setActions(defs) {
       const btn = buttons[def.id];
       if (btn && !def.disabled) btn.disabled = false;
     }
+    syncMapEndDayBtn();
   });
 }
 
@@ -2017,7 +2104,7 @@ function setCooldown(id, ms) {
     const pct = Math.max(0, 1 - (Date.now()-start)/ms);
     bar.style.width = (pct*100) + '%';
     if (pct > 0) requestAnimationFrame(tick);
-    else { btn.disabled = false; bar.style.width = '0'; }
+    else { btn.disabled = false; bar.style.width = '0'; syncMapEndDayBtn(); }
   };
   requestAnimationFrame(tick);
 }
@@ -2052,6 +2139,39 @@ function updateEndDayGlow() {
   if (G.phase < 3 || G.people.length === 0) { btn.classList.remove('endday-ready'); return; }
   const allDone = G.people.every(p => (p.movesLeft ?? 1) <= 0 && p.actionsLeft <= 0);
   btn.classList.toggle('endday-ready', allDone);
+  syncMapEndDayBtn();
+}
+
+// ── Sync the mobile map End Day overlay button with the terminal button ──
+function syncMapEndDayBtn() {
+  const src = buttons['endturn'];
+  const mapBtn = document.getElementById('map-end-day-btn');
+  if (!mapBtn) return;
+  if (!src) { mapBtn.disabled = true; return; }
+  mapBtn.disabled = src.disabled;
+  mapBtn.classList.toggle('endday-ready', src.classList.contains('endday-ready'));
+}
+
+// ── Flash a log message on the map overlay (mobile only) ──
+let mapLogCount = 0;
+const MAP_LOG_SKIP = new Set(['gap','header-line','sys-minor']);
+const MAP_LOG_MAX  = 4; // max visible entries at once
+function mapLogFlash(text, type) {
+  if (!text) return;
+  if (MAP_LOG_SKIP.has(type)) return;
+  if (window.innerWidth > 700) return;
+  const mapPanel = document.getElementById('map-panel');
+  if (!mapPanel || !mapPanel.classList.contains('active')) return;
+  const feed = document.getElementById('map-log-feed');
+  if (!feed) return;
+  // trim old entries
+  while (feed.children.length >= MAP_LOG_MAX) feed.removeChild(feed.firstChild);
+  const entry = document.createElement('div');
+  entry.className = `map-log-entry ${type}`;
+  entry.textContent = text;
+  feed.appendChild(entry);
+  // auto-remove after animation ends
+  setTimeout(() => { if (entry.parentNode) entry.parentNode.removeChild(entry); }, 3600);
 }
 
 // ── Game Over ──
@@ -3812,7 +3932,7 @@ function switchTab(tab) {
   document.getElementById('tab-terminal').classList.toggle('active',tab==='terminal');
   document.getElementById('tab-map').classList.toggle('active',tab==='map');
   if(tab==='terminal'){tp.classList.remove('hidden');mp.classList.remove('active');}
-  else{tp.classList.add('hidden');mp.classList.add('active');resizeMap();}
+  else{tp.classList.add('hidden');mp.classList.add('active');resizeMap();syncMapEndDayBtn();}
 }
 
 // ══════════════════════════════════════════════
