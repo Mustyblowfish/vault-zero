@@ -422,12 +422,38 @@ body::before {
 
 /* End Day pulse — appears when all characters are spent */
 @keyframes endday-pulse {
-  0%, 100% { border-color: var(--green-dim); box-shadow: 0 0 4px rgba(0,255,65,0.2); color: var(--green); }
-  50%       { border-color: var(--green);     box-shadow: 0 0 14px rgba(0,255,65,0.7), 0 0 28px rgba(0,255,65,0.2); color: #fff; }
+  0%, 100% {
+    border-color: var(--green-dim);
+    box-shadow: none;
+    color: var(--green);
+    background: transparent;
+    text-shadow: none;
+  }
+  50% {
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(0,255,65,0.9), 0 0 30px rgba(0,255,65,0.4), inset 0 0 8px rgba(0,255,65,0.15);
+    color: #fff;
+    background: rgba(0,255,65,0.1);
+    text-shadow: 0 0 8px rgba(0,255,65,1);
+  }
 }
 .btn.endday-ready {
-  animation: endday-pulse 1.4s ease-in-out infinite;
+  animation: endday-pulse 1.1s ease-in-out infinite;
   transition: none; /* prevent btn's transition: all fighting the animation */
+}
+
+/* Build panel affordability */
+.btn.build-affordable {
+  border-color: var(--green-dim);
+  background: rgba(0,255,65,0.04);
+}
+.btn.build-affordable:hover { background: rgba(0,255,65,0.08); }
+.btn.build-locked {
+  border-color: #2a0808;
+  background: rgba(255,0,0,0.03);
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .btn:disabled {
@@ -2140,8 +2166,8 @@ function startGame() {
 function restorePower() {
   G.phase = 1;
   G.power = 12;
-  G.food = 18;
-  G.water = 10;
+  G.food = 8;
+  G.water = 0;
   G.systems.power = true;
   updateHUD();
   logGap();
@@ -3128,9 +3154,18 @@ function openHexInfo(h) {
         const canAfford = G.metals >= bld.costMetals && G.wood >= bld.costWood;
         const costStr = [bld.costMetals>0?`${bld.costMetals} metals`:'', bld.costWood>0?`${bld.costWood} wood`:''].filter(Boolean).join(', ');
         const btn=document.createElement('button');
-        btn.className='btn';
+        btn.className = 'btn ' + (canAfford ? 'build-affordable' : 'build-locked');
         btn.style.cssText='font-size:11px;text-align:left;padding:6px 10px;margin-top:3px;';
-        btn.innerHTML=`${bld.icon} ${bld.label} <span style="color:#004400;font-size:9px;">(${costStr})</span><br><span style="color:#003300;font-size:9px;">${bld.desc}</span>`;
+        let vaultMissStr = '';
+        if (!canAfford) {
+          const vNeed = [];
+          if (G.metals < bld.costMetals) vNeed.push(`${bld.costMetals - G.metals} metals`);
+          if (G.wood   < bld.costWood)   vNeed.push(`${bld.costWood   - G.wood  } wood`);
+          vaultMissStr = `<br><span style="color:#993333;font-size:9px;">✗ NEED: ${vNeed.join(', ')}</span>`;
+        }
+        const vLabelColor = canAfford ? 'var(--green-dim)' : '#664444';
+        const vDescColor  = canAfford ? '#00cc44'          : '#554444';
+        btn.innerHTML=`${bld.icon} ${bld.label} <span style="color:${vLabelColor};font-size:9px;">(${costStr})</span><br><span style="color:${vDescColor};font-size:9px;">${bld.desc}</span>${vaultMissStr}`;
         if(!canAfford) btn.disabled=true;
         btn.addEventListener('click',()=>{
           if(G.metals<bld.costMetals||G.wood<bld.costWood){toast('NOT ENOUGH RESOURCES');return;}
@@ -3294,9 +3329,18 @@ function openBuildPanel() {
     const canAfford  = G.metals >= costMetals && G.wood >= costWood;
     const costStr    = [costMetals>0?`${costMetals} metals`:'', costWood>0?`${costWood} wood`:''].filter(Boolean).join(', ');
     const btn = document.createElement('button');
-    btn.className = 'btn';
+    btn.className = 'btn ' + (canAfford ? 'build-affordable' : 'build-locked');
     btn.style.cssText = 'font-size:11px;text-align:left;padding:7px 10px;margin-top:4px;width:100%;';
-    btn.innerHTML = `${bld.icon} ${bld.label} <span style="color:#004400;font-size:9px;">(${costStr})</span><br><span style="color:#003300;font-size:9px;">${bld.desc}</span>`;
+    let missingStr = '';
+    if (!canAfford) {
+      const need = [];
+      if (G.metals < costMetals) need.push(`${costMetals - G.metals} metals`);
+      if (G.wood   < costWood)   need.push(`${costWood   - G.wood  } wood`);
+      missingStr = `<br><span style="color:#993333;font-size:9px;">✗ NEED: ${need.join(', ')}</span>`;
+    }
+    const labelColor  = canAfford ? 'var(--green-dim)' : '#664444';
+    const descColor   = canAfford ? '#00cc44'          : '#554444';
+    btn.innerHTML = `${bld.icon} ${bld.label} <span style="color:${labelColor};font-size:9px;">(${costStr})</span><br><span style="color:${descColor};font-size:9px;">${bld.desc}</span>${missingStr}`;
     if (!canAfford) btn.disabled = true;
     btn.addEventListener('click', () => enterBuildPlacement(bk, bld));
     body.appendChild(btn);
