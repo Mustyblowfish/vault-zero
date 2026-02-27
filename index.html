@@ -420,6 +420,15 @@ body::before {
 }
 .btn.amber:hover { border-color: var(--amber); text-shadow: 0 0 6px var(--amber); }
 
+/* End Day pulse — appears when all characters are spent */
+@keyframes endday-pulse {
+  0%, 100% { border-color: var(--green-dim); box-shadow: 0 0 4px rgba(0,255,65,0.2); color: var(--green); }
+  50%       { border-color: var(--green);     box-shadow: 0 0 14px rgba(0,255,65,0.7), 0 0 28px rgba(0,255,65,0.2); color: #fff; }
+}
+.btn.endday-ready {
+  animation: endday-pulse 1.4s ease-in-out infinite;
+}
+
 .btn:disabled {
   opacity: 0.25;
   cursor: not-allowed;
@@ -1955,6 +1964,17 @@ function updateHUD() {
   document.getElementById('phase-tag').textContent = tags[G.phase] || '';
   updateCharts();
   updateBuildBtn();
+  updateEndDayGlow();
+}
+
+// ── End Day glow — pulses when every character has spent both their move and action ──
+function updateEndDayGlow() {
+  const btn = buttons['endturn'];
+  if (!btn || btn.disabled) return;
+  // Only relevant once the map is active and people exist
+  if (G.phase < 3 || G.people.length === 0) { btn.classList.remove('endday-ready'); return; }
+  const allDone = G.people.every(p => (p.movesLeft ?? 1) <= 0 && p.actionsLeft <= 0);
+  btn.classList.toggle('endday-ready', allDone);
 }
 
 // ── Game Over ──
