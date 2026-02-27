@@ -3847,7 +3847,7 @@ function devSkipToMap() {
   queueDrainCallbacks.length = 0;
   document.getElementById('char-create').style.display = 'none';
   document.getElementById('splash').style.display = 'none';
-  G.phase = 3; G.power = 80; G.food = 30; G.water = 20; G.metals = 12; G.wood = 8;
+  G.phase = 3; G.power = 80; G.food = 8; G.water = 0; G.metals = 0; G.wood = 0;
   G.population = 1; G.turn = 1; G.scanRange = 1;
   G.systems = { power:true, water:true, comms:true, scanner:true, fabricator:false };
   // Keep player char if already created, otherwise generate placeholder
