@@ -1186,7 +1186,7 @@ body::before {
             <div class="res-chart-delta" id="delta-water"></div>
           </div>
           <div class="res-chart" id="chart-metals">
-            <div class="res-chart-label">MTLS</div>
+            <div class="res-chart-label">METAL</div>
             <div class="res-chart-bar-wrap"><div class="res-chart-bar" id="bar-metals" style="background:#aabb44;width:0%"></div></div>
             <div class="res-chart-sparkline" id="spark-metals"></div>
             <div class="res-chart-val" id="val-metals">—</div>
@@ -2168,6 +2168,8 @@ function restorePower() {
   G.power = 12;
   G.food = 8;
   G.water = 0;
+  G.metals = 0;
+  G.wood = 0;
   G.systems.power = true;
   updateHUD();
   logGap();
