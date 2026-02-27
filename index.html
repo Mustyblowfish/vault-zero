@@ -1167,15 +1167,13 @@ body::before {
   <!-- SPLASH / REBOOT SCREEN -->
   <div id="splash">
     <div id="splash-title">VAULT ZERO</div>
-    <div id="splash-reboot">REBOOT MASTER SYSTEMS</div>
-    <!-- shown before boot starts, hidden once sequence runs -->
+    <div id="splash-reboot" style="display:none;">REBOOT MASTER SYSTEMS</div>
+    <!-- only element visible before first click -->
     <div id="splash-click-hint" style="
       font-family:'Share Tech Mono',monospace;
       font-size:12px;
       letter-spacing:4px;
       color:var(--green-dim);
-      opacity:0;
-      transition:opacity 1s;
       animation:splashBlink 1.4s step-end infinite;
       margin-top:4px;
     ">[ CLICK ANYWHERE TO INITIATE ]</div>
@@ -1752,7 +1750,7 @@ function runSplash() {
     bootStarted = true;
     initAudio(); // guaranteed before any beep
     if (clickHint) clickHint.style.display = 'none';
-    if (rebootEl)  { rebootEl.style.animation = 'none'; rebootEl.style.opacity = '1'; }
+    if (rebootEl)  { rebootEl.style.display = 'block'; rebootEl.style.animation = 'none'; rebootEl.style.opacity = '1'; }
     if (progWrap)  { progWrap.style.opacity = '1'; }
     if (stepsEl)   { stepsEl.style.display = 'flex'; }
     // Brief power-on pause then kick off steps
@@ -1906,7 +1904,7 @@ const SURVIVOR_TRAITS = [
 // Role definitions: icon, label, stats (1-5), description
 const ROLE_DEFS = {
   scout:    { icon:'◈', label:'Scout',    speed:5, recon:4, combat:2, morale:2,
-              desc:'Moves 2 hexes. Reveals 4 hexes of fog on arrival. Best chance of finding survivors in the field.' },
+              desc:'Moves 1 hex. Reveals 2 hexes of fog on arrival. Best chance of finding survivors in the field.' },
   farmer:   { icon:'◇', label:'Farmer',   speed:2, recon:4, combat:1, morale:4,
               desc:'+2 food per turn while at the vault. Expert forager and hunter — brings back far more than others.' },
   soldier:  { icon:'⚔', label:'Soldier',  speed:3, recon:2, combat:5, morale:3,
@@ -3068,8 +3066,8 @@ const SCOUT_RANGE = 4; // legacy — kept for scan reveal logic
 
 // ── Movement range helpers ──
 function getMoveRange(person) {
-  // Scouts move 2 hexes per turn; all other roles move 1
-  return (person && person.role === 'scout') ? 2 : 1;
+  // All roles move 1 hex per turn; scouts see 2 hexes on arrival
+  return 1;
 }
 
 function getPersonPosition(person) {
