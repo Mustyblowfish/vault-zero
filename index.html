@@ -2099,9 +2099,10 @@ function updateCharts() {
   if (G.mapUnlocked) {
     const growLights     = Object.values(G.world).filter(h => h.building === 'GROWLIGHT').length;
     const collectors     = Object.values(G.world).filter(h => h.building === 'COLLECTOR').length;
+    const animalPens     = Object.values(G.world).filter(h => h.building === 'ANIMAL_PEN').length;
     const farmersInVault = G.people.filter(p => p.role === 'farmer' && p.status === 'vault').length;
-    const foodDelta  = (growLights * 3 + farmersInVault * 2) - (G.population * 1);
-    const waterDelta = (collectors * 3 + (G.systems.water ? 2 : 0)) - Math.max(1, G.population);
+    const foodDelta  = (animalPens * 2 + growLights * 3 + farmersInVault * 2) - (G.population * 1);
+    const waterDelta = (collectors * 3 + (G.systems.water ? 2 : 0)) - G.population;
 
     function setDelta(id, delta, currentVal) {
       const el = document.getElementById('delta-' + id);
@@ -2173,7 +2174,7 @@ function restorePower() {
   G.phase = 1;
   G.power = 12;
   G.food = 8;
-  G.water = 0;
+  G.water = 15;
   G.metals = 0;
   G.wood = 0;
   G.systems.power = true;
@@ -2476,15 +2477,16 @@ function nextTurn() {
   const furnaces    = Object.values(G.world).filter(h=>h.building==='FURNACE').length;
   const growLights  = Object.values(G.world).filter(h=>h.building==='GROWLIGHT').length;
   const collectors  = Object.values(G.world).filter(h=>h.building==='COLLECTOR').length;
+  const animalPens  = Object.values(G.world).filter(h=>h.building==='ANIMAL_PEN').length;
   const woodBurned  = Math.min(G.wood, furnaces * 1);
   G.wood = Math.max(0, G.wood - woodBurned);
   const powerGen    = 3 + solarPanels * 4 + woodBurned * 6;
   const powerCost   = G.population * 1 + growLights * 2;
   const farmersInVault = G.people.filter(p => p.role === 'farmer' && p.status === 'vault').length;
-  const foodGen     = growLights * 3 + farmersInVault * 2;
+  const foodGen     = animalPens * 2 + growLights * 3 + farmersInVault * 2;
   const waterGen    = collectors * 3 + (G.systems.water ? 2 : 0);
   const foodCost    = G.population * 1;
-  const waterCost   = Math.max(1, G.population);
+  const waterCost   = G.population;
 
   G.food  = Math.max(0, G.food  + foodGen  - foodCost);
   G.water = Math.max(0, G.water + waterGen - waterCost);
@@ -2556,7 +2558,8 @@ function nextTurn() {
 
   log(`── CYCLE ${G.turn} ──────────────────────────`, 'header-line');
   log(`power: ${powerGen>0?'+':''}${powerGen-powerCost} → ${G.power}%  |  solar panels: ${solarPanels}`, 'sys', 150);
-  log(`food: ${foodGen-foodCost>=0?'+':''}${foodGen-foodCost} → ${G.food}${farmersInVault>0?`  [◇ farmer +${farmersInVault*2}]`:''}  |  water: ${waterGen-waterCost>=0?'+':''}${waterGen-waterCost} → ${G.water}`, 'sys', 300);
+  const foodSrcs = [animalPens>0?`⌂ pens +${animalPens*2}`:'', farmersInVault>0?`◇ farmer +${farmersInVault*2}`:''].filter(Boolean).join('  ');
+  log(`food: ${foodGen-foodCost>=0?'+':''}${foodGen-foodCost} → ${G.food}${foodSrcs?`  [${foodSrcs}]`:''}  |  water: ${waterGen-waterCost>=0?'+':''}${waterGen-waterCost} → ${G.water}`, 'sys', 300);
   // Flag starving characters in the cycle report
   const starving = G.people.filter(p => (p.starvingDays || 0) > 0);
   if (starving.length > 0) log(`STARVING: ${starving.map(p=>p.name.split(' ')[0]).join(', ')}`, 'error', 380);
@@ -2607,12 +2610,15 @@ const HEX_TERRAIN = {
 
 
 const HEX_BUILDINGS = {
-  SOLAR:    { icon:'◉', label:'Solar Panel',    costMetals:4, costWood:0,  desc:'Generates 4 power/turn passively.',       effect:'power' },
-  FURNACE:  { icon:'🔥', label:'Wood Furnace',  costMetals:2, costWood:4,  desc:'Burns wood for +6 power/turn.',           effect:'power2'},
-  COLLECTOR:{ icon:'≋', label:'Rain Collector', costMetals:1, costWood:3,  desc:'Generates 3 water/turn passively.',       effect:'water' },
-  GROWLIGHT: { icon:'◇', label:'Grow Lights',  costMetals:4, costWood:2,  desc:'Generates 3 food/turn. Needs power.',     effect:'food'  },
-  OUTPOST:  { icon:'◈', label:'Outpost',        costMetals:2, costWood:4,  desc:'Extends scout range. Shelter point.',     effect:'range' },
-  FORGE:    { icon:'⚙', label:'Forge',          costMetals:3, costWood:3,  desc:'Enables advanced construction.',          effect:'forge' },
+  // ── Early survival (wood only) ──
+  ANIMAL_PEN: { icon:'⌂', label:'Animal Pen',    costMetals:0, costWood:5,  desc:'+2 food/turn. Livestock kept near the vault. Build first.', effect:'food2' },
+  COLLECTOR:  { icon:'≋', label:'Rain Collector', costMetals:0, costWood:4,  desc:'+3 water/turn. Catches rainfall passively. Build first.',   effect:'water' },
+  // ── Mid-game (requires metals) ──
+  SOLAR:      { icon:'◉', label:'Solar Panel',    costMetals:4, costWood:0,  desc:'+4 power/turn passively.',                                   effect:'power' },
+  FURNACE:    { icon:'🔥', label:'Wood Furnace',  costMetals:2, costWood:4,  desc:'Burns 1 wood/turn for +6 power.',                            effect:'power2'},
+  GROWLIGHT:  { icon:'◇', label:'Grow Lights',    costMetals:4, costWood:2,  desc:'+3 food/turn. Requires power to run.',                       effect:'food'  },
+  OUTPOST:    { icon:'◈', label:'Outpost',         costMetals:2, costWood:4,  desc:'Extends scout range. Acts as a shelter point.',              effect:'range' },
+  FORGE:      { icon:'⚙', label:'Forge',           costMetals:3, costWood:3,  desc:'Unlocks advanced construction options.',                     effect:'forge' },
 };
 
 // Hex actions available per terrain type
@@ -3893,7 +3899,7 @@ function devSkipToMap() {
   queueDrainCallbacks.length = 0;
   document.getElementById('char-create').style.display = 'none';
   document.getElementById('splash').style.display = 'none';
-  G.phase = 3; G.power = 80; G.food = 8; G.water = 0; G.metals = 0; G.wood = 0;
+  G.phase = 3; G.power = 80; G.food = 8; G.water = 15; G.metals = 0; G.wood = 0;
   G.population = 1; G.turn = 1; G.scanRange = 1;
   G.systems = { power:true, water:true, comms:true, scanner:true, fabricator:false };
   // Keep player char if already created, otherwise generate placeholder
