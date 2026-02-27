@@ -2996,7 +2996,13 @@ function isDispatchable(hex) {
 }
 
 function dispatchScoutTo(hex, person) {
-  if (!person) { openPersonPicker(hex); return; }
+  if (!person) {
+    const thisKey = `${hex.q},${hex.r}`;
+    const movers = G.people.filter(p => canPersonReachHex(p, hex) && p.missionHex !== thisKey);
+    if (movers.length === 1) { dispatchScoutTo(hex, movers[0]); return; }
+    if (movers.length > 1)   { showQuickMoverPicker(hex, movers); return; }
+    return;
+  }
   if ((person.movesLeft ?? 1) <= 0) { toast(`${person.name.split(' ')[0]} has already moved this turn`); return; }
   if (!canPersonReachHex(person, hex)) { toast('OUT OF RANGE'); return; }
 
@@ -3210,9 +3216,12 @@ function handleMapTap(sx,sy) {
     return;
   }
 
-  // Clicking an unrevealed but reachable hex dispatches scout directly
+  // Clicking an unrevealed but reachable hex — dispatch or show quick picker
   if (!hex.revealed && isReachableForScout(hex)) {
-    dispatchScoutTo(hex);
+    const thisKey = `${hex.q},${hex.r}`;
+    const movers = G.people.filter(p => canPersonReachHex(p, hex) && p.missionHex !== thisKey);
+    if (movers.length === 1) dispatchScoutTo(hex, movers[0]);
+    else if (movers.length > 1) showQuickMoverPicker(hex, movers);
     return;
   }
 
