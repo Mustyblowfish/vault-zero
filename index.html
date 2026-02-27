@@ -2020,6 +2020,8 @@ function drawFacePortrait(canvas, name, role) {
   for (let y=0; y<3; y++) for (let x=0; x<neckW; x++) px(neckX+x,faceY+faceH+y,pal.shadow);
 }
 
+const MAX_FATIGUE = 5; // turns in the field before a character must rest
+
 // ── Enemy unit definitions ──
 const ENEMY_TYPES = {
   raider: { icon:'⚔', label:'Raider', attack:2, defence:1, maxHp:3, color:'#ff3030', minTurn:5  },
@@ -2052,6 +2054,7 @@ function generatePerson(forceRole) {
     movesLeft: 1,
     starvingDays: 0,
     wounds: 0,
+    fatigue: 0,
     stats: {
       speed:  Math.max(1, Math.min(5, def.speed  + variance())),
       recon:  Math.max(1, Math.min(5, def.recon  + variance())),
@@ -2868,6 +2871,30 @@ function nextTurn() {
     }
   }
 
+  // ── Fatigue tick ──
+  G.people.forEach(p => {
+    if (p.status === 'vault') {
+      // Full rest at vault: -2 fatigue per turn
+      p.fatigue = Math.max(0, (p.fatigue||0) - 2);
+    } else {
+      const mhex = p.missionHex ? G.world[p.missionHex] : null;
+      const atOutpost = mhex && mhex.building === 'OUTPOST';
+      if (atOutpost) {
+        // Resting at outpost: -1 fatigue per turn
+        p.fatigue = Math.max(0, (p.fatigue||0) - 1);
+      } else {
+        // Active in field: +1 fatigue per turn
+        p.fatigue = Math.min(MAX_FATIGUE, (p.fatigue||0) + 1);
+      }
+    }
+  });
+  // Auto-return anyone who just hit max fatigue
+  G.people.forEach(p => {
+    if (p.status !== 'vault' && (p.fatigue||0) >= MAX_FATIGUE) {
+      autoReturnExhausted(p);
+    }
+  });
+
   // ── Spawn and move enemies ──
   maybeSpawnEnemy();
   setTimeout(moveEnemies, 400);
@@ -2919,7 +2946,7 @@ const HEX_BUILDINGS = {
   SOLAR:      { icon:'◉', label:'Solar Panel',    costMetals:4, costWood:0,  desc:'+4 power/turn passively.',                                   effect:'power' },
   FURNACE:    { icon:'🔥', label:'Wood Furnace',  costMetals:2, costWood:4,  desc:'Burns 1 wood/turn for +6 power.',                            effect:'power2'},
   GROWLIGHT:  { icon:'◇', label:'Grow Lights',    costMetals:4, costWood:2,  desc:'+3 food/turn. Requires power to run.',                       effect:'food'  },
-  OUTPOST:    { icon:'◈', label:'Outpost',         costMetals:2, costWood:4,  desc:'Extends scout range. Acts as a shelter point.',              effect:'range' },
+  OUTPOST:    { icon:'▲', label:'Outpost',         costMetals:2, costWood:4,  desc:'Field rest point. Characters recover fatigue here instead of returning to vault.',              effect:'range' },
   FORGE:      { icon:'⚙', label:'Forge',           costMetals:3, costWood:3,  desc:'Unlocks advanced construction options.',                     effect:'forge' },
 };
 
@@ -3219,6 +3246,7 @@ function getPersonPosition(person) {
 function canPersonReachHex(person, hex) {
   if (!person || !hex) return false;
   if ((person.movesLeft ?? 1) <= 0) return false;
+  if ((person.fatigue||0) >= MAX_FATIGUE) return false; // exhausted — must rest first
   // Don't allow moving while already in transit
   const scout = G.scoutUnits.find(s => s.personId === person.id);
   if (scout && scout.moving) return false;
@@ -3440,6 +3468,71 @@ function moveEnemyToward(enemy) {
 
 function moveEnemies() {
   G.enemyUnits.forEach(e => moveEnemyToward(e));
+}
+
+function autoReturnExhausted(person) {
+  // Don't interrupt if already moving
+  const sc = G.scoutUnits.find(s => s.personId === person.id);
+  if (sc && sc.moving) return;
+
+  const firstName = person.name.split(' ')[0];
+  const cur = getPersonPosition(person);
+
+  // Find nearest base: vault (0,0) or any outpost hex
+  const bases = [{ q:0, r:0 }];
+  Object.values(G.world).forEach(h => { if (h.building === 'OUTPOST') bases.push({ q:h.q, r:h.r }); });
+
+  let nearest = bases[0], minDist = Infinity;
+  for (const b of bases) {
+    const d = hDist(cur.q, cur.r, b.q, b.r);
+    if (d < minDist) { minDist = d; nearest = b; }
+  }
+
+  // Already there?
+  if (minDist === 0) {
+    if (nearest.q === 0 && nearest.r === 0) { person.status = 'vault'; person.missionHex = null; }
+    return;
+  }
+
+  // Find best adjacent step toward nearest base
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];
+  const neighbors = dirs.map(([dq,dr]) => G.world[hKey(cur.q+dq, cur.r+dr)]).filter(h => h);
+  if (!neighbors.length) return;
+  const best = neighbors.reduce((prev, curr) =>
+    hDist(curr.q,curr.r,nearest.q,nearest.r) < hDist(prev.q,prev.r,nearest.q,nearest.r) ? curr : prev
+  );
+
+  log(`◈ ${firstName} is exhausted — returning to base.`, 'sys');
+
+  // Set up movement (bypasses normal action checks)
+  let scout = G.scoutUnits.find(s => s.personId === person.id);
+  if (!scout) {
+    scout = { personId: person.id, q: cur.q, r: cur.r, tq: best.q, tr: best.r, moving: false, progress: 0, animX: null, animY: null };
+    G.scoutUnits.push(scout);
+  }
+  scout.q = cur.q; scout.r = cur.r;
+  scout.tq = best.q; scout.tr = best.r;
+  scout.progress = 0;
+  person.movesLeft = 0;
+  person.actionsLeft = 0;
+  person.status = 'mission';
+  person.missionHex = hKey(best.q, best.r);
+
+  playMoveSound();
+  animateScout(scout, () => {
+    scout.q = best.q; scout.r = best.r;
+    scout.animX = null; scout.animY = null;
+    // Arrived at base?
+    if (best.q === nearest.q && best.r === nearest.r) {
+      if (nearest.q === 0 && nearest.r === 0) {
+        person.status = 'vault'; person.missionHex = null;
+        log(`◈ ${firstName} back at the vault. Resting.`, 'story', 200);
+      } else {
+        log(`◈ ${firstName} resting at outpost.`, 'story', 200);
+      }
+    }
+    drawMap();
+  });
 }
 
 function checkEnemyCombat(enemy) {
@@ -3732,6 +3825,7 @@ function openHexInfo(h) {
       bLabel.textContent = 'BUILD AT VAULT:';
       acts.appendChild(bLabel);
       for (const [bk,bld] of Object.entries(HEX_BUILDINGS)) {
+        if (bk === 'OUTPOST') continue; // outposts are built in the field, not at vault
         const canAfford = G.metals >= bld.costMetals && G.wood >= bld.costWood;
         const costStr = [bld.costMetals>0?`${bld.costMetals} metals`:'', bld.costWood>0?`${bld.costWood} wood`:''].filter(Boolean).join(', ');
         const btn=document.createElement('button');
@@ -3783,9 +3877,12 @@ function openHexInfo(h) {
         btn.className = 'btn';
         btn.style.cssText='font-size:10px;text-align:left;padding:5px 8px;';
         const range = getMoveRange(p);
+        const fatNote = (p.fatigue||0) >= MAX_FATIGUE-1
+          ? `<span style="color:${(p.fatigue||0)>=MAX_FATIGUE?'var(--red)':'#ffb000'};font-size:9px;float:right;">${(p.fatigue||0)>=MAX_FATIGUE?'EXHAUSTED':'TIRED'}</span>`
+          : `<span style="float:right;font-size:9px;color:var(--green)">● MOVE</span>`;
         btn.innerHTML = `${def.icon} <b>${p.name}</b>${p.isPlayer ? ' <span style="color:#ffb000;font-size:9px;">YOU</span>' : ''} <span style="color:var(--green-dim);font-size:9px;">${p.role}</span><br>
           <span style="color:#005500;font-size:9px;letter-spacing:1px;">SPD ${statBar(p.stats.speed)} RCN ${statBar(p.stats.recon)} RANGE ${range}</span>
-          <span style="float:right;font-size:9px;color:var(--green)">● MOVE</span>`;
+          ${fatNote}`;
         btn.addEventListener('click', ()=>{ dispatchScoutTo(h, p); });
         acts.appendChild(btn);
       });
@@ -3807,8 +3904,11 @@ function openHexInfo(h) {
     const woundStr = (personHere.wounds||0) > 0
       ? `<div style="font-size:9px;color:var(--red);letter-spacing:1px;margin-top:1px;">WOUNDS: ${'●'.repeat(personHere.wounds||0)}${'○'.repeat(Math.max(0,3-(personHere.wounds||0)))}</div>`
       : '';
+    const hiFat = personHere.fatigue||0;
+    const hiFatColor = hiFat >= MAX_FATIGUE ? 'var(--red)' : hiFat >= MAX_FATIGUE-1 ? '#ffb000' : '#003a00';
+    const fatStr = `<div style="font-size:9px;color:${hiFatColor};letter-spacing:1px;margin-top:1px;">FAT ${'█'.repeat(hiFat)}${'░'.repeat(MAX_FATIGUE-hiFat)}${hiFat>=MAX_FATIGUE?' EXHAUSTED':hiFat>=MAX_FATIGUE-1?' TIRED':''}</div>`;
     hiMeta.innerHTML = `<div style="font-size:11px;color:var(--green);letter-spacing:1px;">${personHere.name.split(' ')[0].toUpperCase()}</div>
-      <div style="font-size:9px;color:var(--green-dim);letter-spacing:1px;">${personHere.role}</div>${woundStr}`;
+      <div style="font-size:9px;color:var(--green-dim);letter-spacing:1px;">${personHere.role}</div>${fatStr}${woundStr}`;
     personHeader.appendChild(hiCanvas);
     personHeader.appendChild(hiMeta);
     acts.appendChild(personHeader);
@@ -3899,6 +3999,37 @@ function openHexInfo(h) {
       logGap(); drawMap();
     });
     acts.appendChild(btn);
+  }
+
+  // Build Outpost — available on explored non-vault hexes that have no building yet
+  if (h.explored && !h.building && (h.q !== 0 || h.r !== 0) && G.phase >= 2) {
+    const bld = HEX_BUILDINGS.OUTPOST;
+    const canAfford = G.metals >= bld.costMetals && G.wood >= bld.costWood;
+    const outpostSep = document.createElement('div');
+    outpostSep.style.cssText = 'margin-top:8px;padding-top:6px;border-top:1px solid #003310;font-size:9px;color:var(--green-dim);letter-spacing:2px;';
+    outpostSep.textContent = 'CONSTRUCTION:';
+    acts.appendChild(outpostSep);
+    const outpostBtn = document.createElement('button');
+    outpostBtn.className = 'btn ' + (canAfford ? '' : 'build-locked');
+    outpostBtn.style.cssText = 'font-size:10px;text-align:left;padding:6px 9px;margin-top:3px;';
+    const missStr = !canAfford ? (() => {
+      const n = [];
+      if (G.metals < bld.costMetals) n.push(`${bld.costMetals - G.metals} metals`);
+      if (G.wood < bld.costWood) n.push(`${bld.costWood - G.wood} wood`);
+      return `<br><span style="color:#993333;font-size:9px;">✗ NEED: ${n.join(', ')}</span>`;
+    })() : '';
+    outpostBtn.innerHTML = `${bld.icon} BUILD OUTPOST <span style="color:var(--green-dim);font-size:9px;">(${bld.costMetals} metals, ${bld.costWood} wood)</span><br>
+      <span style="color:${canAfford?'#00cc44':'#554444'};font-size:9px;">${bld.desc}</span>${missStr}`;
+    if (!canAfford) outpostBtn.disabled = true;
+    outpostBtn.addEventListener('click', () => {
+      G.metals -= bld.costMetals; G.wood -= bld.costWood;
+      h.building = 'OUTPOST';
+      updateHUD(); drawMap(); closeHexInfo();
+      log(`[ OUTPOST ESTABLISHED ]`, 'action');
+      log(`A field camp. Characters can rest here and push deeper into the wastes.`, 'story', 400);
+      logGap(); G.discoveries++;
+    });
+    acts.appendChild(outpostBtn);
   }
 
   // Pulse if: person at hex has actions, OR hex has dispatch options available
@@ -4192,6 +4323,12 @@ function openRosterOverlay() {
         <div class="roster-person-stats">
           SPD ${statBar(p.stats.speed)}  RCN ${statBar(p.stats.recon)}  CMB ${statBar(p.stats.combat)}  MRL ${statBar(p.stats.morale)}
         </div>
+        ${(()=>{
+          const fat = p.fatigue||0;
+          const fatColor = fat >= MAX_FATIGUE ? 'var(--red)' : fat >= MAX_FATIGUE-1 ? '#ffb000' : '#003a00';
+          const fatLabel = fat >= MAX_FATIGUE ? 'EXHAUSTED' : fat >= MAX_FATIGUE-1 ? 'TIRED' : '';
+          return `<div style="font-size:11px;color:${fatColor};letter-spacing:1px;margin-top:2px;">FAT ${'█'.repeat(fat)}${'░'.repeat(MAX_FATIGUE-fat)}${fatLabel?' — '+fatLabel:''}</div>`;
+        })()}
         ${(p.wounds||0)>0 ? `<div style="font-size:11px;color:var(--red);letter-spacing:1px;margin-top:2px;">WOUNDS: ${'●'.repeat(p.wounds||0)}${'○'.repeat(Math.max(0,3-(p.wounds||0)))}</div>` : ''}`;
       div.appendChild(info);
       body.appendChild(div);
