@@ -421,6 +421,12 @@ body::before {
 .btn.amber:hover { border-color: var(--amber); text-shadow: 0 0 6px var(--amber); }
 
 /* End Day pulse — appears when all characters are spent */
+@keyframes action-panel-pulse {
+  0%, 100% { border-color: var(--green-dark); box-shadow: none; }
+  50%       { border-color: var(--green); box-shadow: 0 0 10px rgba(0,255,65,0.4), inset 0 0 8px rgba(0,255,65,0.06); }
+}
+#hex-info.action-ready { animation: action-panel-pulse 1.1s ease-in-out infinite; }
+
 @keyframes endday-pulse {
   0%, 100% {
     border-color: var(--green-dim);
@@ -2734,7 +2740,12 @@ function drawMap() {
   drawScouts();
 
   // Trigger redraw if any scout is moving (animation)
-  if (G.scoutUnits.some(s=>s.moving)) requestAnimationFrame(drawMap);
+  const anyActionPending = G.scoutUnits.some(sc => {
+    if (sc.moving) return true;
+    const p = G.people.find(p => p.id === sc.personId);
+    return p && p.actionsLeft > 0;
+  });
+  if (anyActionPending) requestAnimationFrame(drawMap);
 
   updateMapStats();
 }
@@ -2797,6 +2808,22 @@ function drawHex2(h,cx,cy) {
                    : reach   ? 1.6
                    :           1;
   ctx2.stroke();
+
+  // Pulsing border if a person with actions is stationed here
+  const hexKeyStr = hKey(h.q, h.r);
+  if (G.people.some(p => p.missionHex === hexKeyStr && p.actionsLeft > 0 && p.status === 'mission')) {
+    ctx2.beginPath();
+    ctx2.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < 6; i++) ctx2.lineTo(pts[i].x, pts[i].y);
+    ctx2.closePath();
+    const pt = (Math.sin(Date.now() / 350) + 1) / 2;
+    ctx2.strokeStyle = `rgba(0,255,65,${0.3 + pt * 0.55})`;
+    ctx2.lineWidth = 2 + pt;
+    ctx2.shadowColor = '#00ff41';
+    ctx2.shadowBlur = 4 + pt * 14;
+    ctx2.stroke();
+    ctx2.shadowBlur = 0;
+  }
 
   // Vault marker at center
   if (h.q===0&&h.r===0) {
@@ -3069,6 +3096,19 @@ function drawScouts() {
       ctx2.fillText(person.name.split(' ')[0], s.x, s.y + HEX_SIZE*0.52);
     }
 
+    // Action-available pulse ring (outer glow when person can still act)
+    if (person && person.actionsLeft > 0 && !scout.moving) {
+      const pt = (Math.sin(Date.now() / 350) + 1) / 2;
+      ctx2.beginPath();
+      ctx2.arc(s.x, s.y, HEX_SIZE * (0.38 + pt * 0.07), 0, Math.PI * 2);
+      ctx2.strokeStyle = `rgba(0,255,65,${0.2 + pt * 0.6})`;
+      ctx2.lineWidth = 1.5;
+      ctx2.shadowColor = '#00ff41';
+      ctx2.shadowBlur = 3 + pt * 14;
+      ctx2.stroke();
+      ctx2.shadowBlur = 0;
+    }
+
     // Move pips (travel indicator)
     if (scout.moving) {
       const t = (Date.now() % 900) / 900;
@@ -3279,11 +3319,13 @@ function openHexInfo(h) {
     acts.appendChild(btn);
   }
 
+  el.classList.toggle('action-ready', !!personHere);
   el.classList.add('show');
 }
 
 function closeHexInfo() {
-  document.getElementById('hex-info').classList.remove('show');
+  const el = document.getElementById('hex-info');
+  el.classList.remove('show', 'action-ready');
   selectedH=null; drawMap();
 }
 
