@@ -3454,6 +3454,10 @@ function resolveCombat(person, enemy) {
   const def = ENEMY_TYPES[enemy.type];
   const firstName = person.name.split(' ')[0];
 
+  // Combat uses up this person's action for the turn
+  person.actionsLeft = 0;
+  updateHUD();
+
   // Exchange damage
   const playerDmg = Math.max(1, Math.ceil(person.stats.combat / 2) + Math.floor(Math.random()*2));
   enemy.hp = Math.max(0, enemy.hp - playerDmg);
@@ -3814,6 +3818,33 @@ function openHexInfo(h) {
     aLabel.style.cssText='font-size:10px;color:var(--green-dim);letter-spacing:2px;margin:2px 0 3px;';
     aLabel.textContent = 'CHOOSE ACTION:';
     acts.appendChild(aLabel);
+
+    // Doctor heal action — appears when doctor has a wounded ally (or self) at same hex
+    if (personHere.role === 'doctor') {
+      const hexKey2 = `${h.q},${h.r}`;
+      const woundedHere = G.people
+        .filter(p => p.missionHex === hexKey2 && (p.wounds||0) > 0)
+        .sort((a, b) => b.wounds - a.wounds);
+      if (woundedHere.length > 0) {
+        const target = woundedHere[0];
+        const isSelf = target.id === personHere.id;
+        const healBtn = document.createElement('button');
+        healBtn.className = 'btn';
+        healBtn.style.cssText = 'font-size:11px;text-align:left;padding:7px 10px;margin-top:3px;border-color:var(--green);';
+        healBtn.innerHTML = `⊕ HEAL ${isSelf ? 'SELF' : target.name.split(' ')[0].toUpperCase()} <span style="color:var(--green-dim);font-size:9px;">wounds: ${target.wounds}/3</span>`;
+        healBtn.addEventListener('click', () => {
+          const docFirst = personHere.name.split(' ')[0];
+          const targetFirst = target.name.split(' ')[0];
+          target.wounds = Math.max(0, (target.wounds||0) - 1);
+          personHere.actionsLeft = 0;
+          log(`⊕ ${docFirst} patches ${isSelf ? 'their own wounds' : targetFirst + "'s wounds"}.`, 'story');
+          updateHUD();
+          openHexInfo(h);
+        });
+        acts.appendChild(healBtn);
+      }
+    }
+
     availActions.forEach(actKey => {
       const ad = ACTION_DEFS[actKey];
       if (!ad) return;
