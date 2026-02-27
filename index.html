@@ -1066,6 +1066,59 @@ body::before {
 .cp-dodge { color: var(--amber); }
 .cp-kill  { color: var(--green); }
 
+/* ── CYOA Encounter overlay ── */
+#encounter-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.97);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+#encounter-overlay.active { display: flex; }
+#encounter-panel {
+  max-width: 500px;
+  width: 92%;
+  border: 1px solid var(--green-dim);
+  padding: 28px 28px 22px;
+  background: rgba(0,6,0,0.98);
+  box-shadow: 0 0 40px rgba(0,255,65,0.08);
+}
+#encounter-header {
+  font-size: 9px;
+  color: var(--green-dim);
+  letter-spacing: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #002200;
+  padding-bottom: 10px;
+}
+#encounter-text {
+  font-size: 13px;
+  color: var(--green);
+  line-height: 1.9;
+  min-height: 90px;
+  margin-bottom: 18px;
+}
+#encounter-text p { margin: 0 0 6px; }
+#encounter-choices { display: flex; flex-direction: column; gap: 6px; }
+.enc-btn {
+  background: rgba(0,15,0,0.6);
+  border: 1px solid var(--green-dim);
+  color: var(--green);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  padding: 9px 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+.enc-btn:hover { border-color: var(--green); background: rgba(0,30,0,0.7); }
+.enc-btn:disabled { color: var(--green-dark); border-color: #001a00; cursor: default; }
+.enc-outcome { color: var(--green); font-size: 11px; letter-spacing: 2px; margin-top: 10px; border-top: 1px solid #002200; padding-top: 10px; }
+.enc-outcome.bad { color: var(--red); }
+
 /* ── Game Over overlay ── */
 #game-over {
   display: none;
@@ -1343,6 +1396,15 @@ body::before {
             <div class="res-chart-bar-wrap"><div class="res-chart-bar" id="bar-pop" style="background:#aacc44;width:0%"></div></div>
             <div class="res-chart-sparkline" id="spark-pop"></div>
             <div class="res-chart-val" id="val-pop">—</div>
+          </div>
+        </div>
+
+        <!-- ENCOUNTER OVERLAY (full-screen CYOA story events) -->
+        <div id="encounter-overlay">
+          <div id="encounter-panel">
+            <div id="encounter-header"></div>
+            <div id="encounter-text"></div>
+            <div id="encounter-choices"></div>
           </div>
         </div>
 
@@ -2971,6 +3033,185 @@ const ACTION_DEFS = {
   search_survivors: { label:'Search for Survivors', icon:'◈', yields:'morale', base:0,  recon:true  },
 };
 
+// ── CYOA Encounter system ──────────────────────────────────────────────────
+// Keyed by HEX_TERRAIN type. Each entry is a pool; one is picked at random.
+// hex.eventSeen is set to true after triggering so it never repeats.
+const ENCOUNTER_CHANCE = {
+  WASTE: 0.5, RUIN: 0.85, FOREST: 0.8,
+  WATER: 0.8, GRASS: 0.6, MOUNTAIN: 0.9, BUNKER: 1.0,
+};
+
+const ENCOUNTER_POOLS = {
+  WASTE: [
+    { id:'w_body',
+      text:['A figure half-buried in ash.','It has been there a long time.','The pack on its back is sealed.'],
+      choices:[
+        { label:'SEARCH THE PACK',
+          beats:['The zipper breaks. Inside — rations, still sealed. Whoever they were, they never made it.'],
+          outcome:{ food:5, log:'salvaged rations from a body in the ash.' } },
+        { label:'LEAVE IT',
+          beats:['Some things are better left alone.'],
+          outcome:{ nothing:true } },
+      ]},
+    { id:'w_car',
+      text:['A vehicle on its side.','Doors fused shut with rust.','Something inside catches the light.'],
+      choices:[
+        { label:'BREAK THE WINDOW',
+          beats:['Glass everywhere. Inside — tools, a first-aid kit still in the plastic.'],
+          outcome:{ metals:3, log:'broke into a rusted car. found tools.' } },
+        { label:'CHECK THE BOOT',
+          beats:['Spare tyre. A jerry can — empty. But the steel is worth keeping.'],
+          outcome:{ metals:2, log:'salvaged a jerry can from an abandoned car.' } },
+        { label:'MOVE ON', beats:['Not worth the noise.'], outcome:{ nothing:true } },
+      ]},
+  ],
+  RUIN: [
+    { id:'r_pharmacy',
+      text:['A pharmacy. Most shelves stripped.','The dispensary door at the back — still locked.','Someone tried to force it. They didn\'t get far.'],
+      choices:[
+        { label:'FORCE THE DOOR',
+          beats:['It gives on the third try. Inside — expired medicine, but bandages and antiseptic, sealed. Useful.'],
+          outcome:{ metals:2, log:'forced open a pharmacy dispensary. medical supplies salvaged.' } },
+        { label:'SEARCH THE FRONT SHELVES',
+          beats:['Whoever cleaned this place out was thorough. A few blister packs behind the counter. Not much.'],
+          outcome:{ food:2, log:'picked over the front shelves of an old pharmacy.' } },
+        { label:'LEAVE', beats:['The smell inside is wrong.'], outcome:{ nothing:true } },
+      ]},
+    { id:'r_school',
+      text:['A school. Three storeys. Windows intact.','The front doors are open.','Inside, chalk still on the blackboard. Someone wrote a list of names.'],
+      choices:[
+        { label:'CHECK THE STOREROOMS',
+          beats:['Cleaning supplies, nothing useful. But behind a false wall in the art room — a month\'s worth of emergency food tins.'],
+          outcome:{ food:12, log:'found an emergency cache hidden in an abandoned school.' } },
+        { label:'CALL OUT',
+          beats:['Silence. Then — movement on the second floor. A person. Thin, but alive.'],
+          outcome:{ survivor:true, log:'found a survivor sheltering in the school.' } },
+        { label:'READ THE LIST',
+          beats:['Seventeen names. Last entry: gone to find help. 14 days ago. No one came.'],
+          outcome:{ nothing:true } },
+      ]},
+    { id:'r_petrol',
+      text:['A petrol station.','The canopy has collapsed across the pumps.','One of the underground tanks is still sealed.'],
+      choices:[
+        { label:'SEARCH THE SHOP',
+          beats:['Most food is spoiled. Snacks in sealed bags — better than nothing. Behind the counter, a box of lighters.'],
+          outcome:{ food:4, metals:1, log:'raided an old petrol station shop.' } },
+        { label:'DRAIN THE TANK',
+          beats:['Fuel — degraded, but the metal casing is valuable. Hard work. You cut your hand on the fitting.'],
+          outcome:{ metals:5, wound:true, log:'drained a fuel tank for scrap. took a cut in the process.' } },
+        { label:'MARK IT AND LEAVE',
+          beats:['The tank isn\'t going anywhere.'],
+          outcome:{ nothing:true } },
+      ]},
+  ],
+  FOREST: [
+    { id:'f_tracks',
+      text:['Tracks in the mud. Recent.','Boot-sized. Human.','They lead deeper into the tree line.'],
+      choices:[
+        { label:'FOLLOW THEM',
+          beats:['A camp. Cold fire. Three sleeping bags. No one here now — but a food cache is buried under the roots.'],
+          outcome:{ food:8, log:'followed tracks to an abandoned camp. food cached under the roots.' } },
+        { label:'CALL OUT',
+          beats:['A voice answers. Wary, but human. Takes time to earn trust. Worth it.'],
+          outcome:{ survivor:true, log:'found a survivor hiding in the forest.' } },
+        { label:'IGNORE THEM', beats:['Could have been old.'], outcome:{ nothing:true } },
+      ]},
+    { id:'f_stand',
+      text:['A hunting stand, high in an oak.','Someone used this place recently.','A rope hangs from the platform.'],
+      choices:[
+        { label:'CLIMB UP',
+          beats:['A waterproof case strapped to the planks. Inside — dried meat, a hunting knife, a hand-drawn map.'],
+          outcome:{ food:6, metals:2, log:'found a hunter\'s stash in a tree stand.' } },
+        { label:'WAIT AND WATCH',
+          beats:['An hour passes. No one comes. You take what\'s there.'],
+          outcome:{ food:4, log:'waited, then took the abandoned hunter\'s cache.' } },
+      ]},
+    { id:'f_grove',
+      text:['A clearing. Wild fruit trees — apple, pear.','More than expected.','Something has been eating here too.'],
+      choices:[
+        { label:'HARVEST QUICKLY',
+          beats:['Arms full. Back before whatever it is returns.'],
+          outcome:{ food:10, log:'harvested a wild fruit grove.' } },
+        { label:'SET A SNARE AND WAIT',
+          beats:['A large dog — lean but healthy. It watches you. You let it go and take the fruit instead.'],
+          outcome:{ food:8, log:'harvested fruit. left a wild dog alone.' } },
+      ]},
+  ],
+  WATER: [
+    { id:'wa_dock',
+      text:['A dock. Rotten planks, solid enough.','A flat-bottomed boat tied at the end.','The reservoir stretches out — still and grey.'],
+      choices:[
+        { label:'SEARCH THE BOAT',
+          beats:['A tackle box. Fishing line, hooks, still good. Under the seat — two litres of sealed water.'],
+          outcome:{ water:8, food:3, log:'found supplies in a boat at the old dock.' } },
+        { label:'FILL CONTAINERS',
+          beats:['The water is surprisingly clear this deep. Enough to carry back.'],
+          outcome:{ water:12, log:'collected clean water from the reservoir.' } },
+      ]},
+    { id:'wa_pump',
+      text:['A pump house. Old, but the mechanism is intact.','With some work this could feed the vault.'],
+      choices:[
+        { label:'REPAIR THE PUMP',
+          beats:['Two hours of work. Bleeding knuckles. But it flows. Clean, cold water.'],
+          outcome:{ water:15, log:'repaired a pump house. major water source found.' } },
+        { label:'COLLECT AND GO',
+          beats:['No time to fix it. Collect what you can carry.'],
+          outcome:{ water:6, log:'collected water and marked the pump house for later.' } },
+      ]},
+  ],
+  GRASS: [
+    { id:'g_signal',
+      text:['Smoke on the horizon.','Not a fire — a signal.','Someone burning green wood deliberately.'],
+      choices:[
+        { label:'MOVE TOWARD IT',
+          beats:['A family of three. Moving for weeks. One of them knows medicine.'],
+          outcome:{ survivor:true, log:'followed a smoke signal. found survivors.' } },
+        { label:'OBSERVE FIRST',
+          beats:['You watch for an hour. Nothing threatening. They are glad you were careful — trust earned.'],
+          outcome:{ survivor:true, food:4, log:'cautiously approached a signal fire. survivors found.' } },
+        { label:'IGNORE IT', beats:['Could be a trap. You keep moving.'], outcome:{ nothing:true } },
+      ]},
+    { id:'g_crops',
+      text:['Wild crops. Wheat, maybe — or something close.','Enough to make it worth stopping.','No sign of who planted them.'],
+      choices:[
+        { label:'HARVEST EVERYTHING',
+          beats:['Armfuls of grain. Dusty but edible.'],
+          outcome:{ food:9, log:'harvested wild crops from an overgrown field.' } },
+        { label:'TAKE HALF, LEAVE HALF',
+          beats:['Leave some to reseed. This could be a supply point for months.'],
+          outcome:{ food:5, log:'partially harvested a wild crop field. left it to regrow.' } },
+      ]},
+  ],
+  MOUNTAIN: [
+    { id:'m_mine',
+      text:['A mine entrance. Shored with old timbers.','The air smells of rust and cold stone.','Rail tracks disappear into the dark.'],
+      choices:[
+        { label:'GO IN',
+          beats:['Fifty metres in — an untouched seam. You chip out what you can carry. Your back aches for days.'],
+          outcome:{ metals:8, wound:true, log:'entered an old mine. rich ore vein found.' } },
+        { label:'CHECK THE EQUIPMENT SHED',
+          beats:['Old tools, but solid steel. Worth taking.'],
+          outcome:{ metals:4, wood:2, log:'salvaged a mine equipment shed.' } },
+        { label:'MARK IT AND LEAVE',
+          beats:['This will be here when we are better equipped.'],
+          outcome:{ nothing:true } },
+      ]},
+  ],
+  BUNKER: [
+    { id:'b_sealed',
+      text:['Another bunker. Reinforced door — different design to yours.','The locking mechanism is external.','Someone sealed this from the outside.'],
+      choices:[
+        { label:'UNSEAL IT',
+          beats:['The door swings in. Three people inside. They sealed themselves in after an injury. They thought rescue wasn\'t coming.'],
+          outcome:{ survivor:true, log:'unsealed a bunker. survivors found inside.' } },
+        { label:'CALL THROUGH THE DOOR',
+          beats:['Silence. Then a voice — weak but alive. You work faster.'],
+          outcome:{ survivor:true, food:6, log:'opened a sealed bunker. survivors and supplies inside.' } },
+        { label:'LEAVE IT SEALED', beats:['Not your business. You keep moving.'], outcome:{ nothing:true } },
+      ]},
+  ],
+};
+
 let HEX_SIZE = 30;
 const canvas = document.getElementById('gc');
 const ctx2 = canvas.getContext('2d');
@@ -3341,8 +3582,20 @@ function dispatchScoutTo(hex, person) {
     // Narrative with person name
     arrivalNarrative(hex, person);
 
-    // Auto-open hex actions panel if person can still act this turn
-    if (person && person.actionsLeft > 0) {
+    // CYOA encounter on first visit (skip if combat is already resolving)
+    let encPending = false;
+    if (!hex.eventSeen && G.phase >= 3 && !enemyOnHex && person) {
+      const enc = pickEncounter(hex.terrain);
+      if (enc) {
+        encPending = true;
+        hex.eventSeen = true;
+        selectedH = hex;
+        setTimeout(() => showEncounter(enc, hex, person), 1400);
+      }
+    }
+
+    // Auto-open hex actions panel if person can still act (suppress while encounter loads)
+    if (person && person.actionsLeft > 0 && !encPending) {
       selectedH = hex;
       setTimeout(() => openHexInfo(hex), 700);
     }
@@ -3800,6 +4053,123 @@ function handleMapTap(sx,sy) {
   selectedH=hex;
   drawMap();
   openHexInfo(hex);
+}
+
+// ── CYOA Encounter functions ───────────────────────────────────────────────
+
+function pickEncounter(terrain) {
+  const chance = ENCOUNTER_CHANCE[terrain] ?? 0.5;
+  if (Math.random() > chance) return null;
+  const pool = ENCOUNTER_POOLS[terrain];
+  if (!pool || !pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function showEncounter(enc, hex, person) {
+  const overlay = document.getElementById('encounter-overlay');
+  const headerEl = document.getElementById('encounter-header');
+  const textEl = document.getElementById('encounter-text');
+  const choicesEl = document.getElementById('encounter-choices');
+
+  const firstName = person ? person.name.split(' ')[0] : 'SCOUT';
+  const terrain = HEX_TERRAIN[hex.terrain]?.label?.toUpperCase() || 'UNKNOWN';
+  headerEl.textContent = `${firstName.toUpperCase()}  ·  ${terrain}`;
+  textEl.innerHTML = '';
+  choicesEl.innerHTML = '';
+
+  overlay.classList.add('active');
+  revealEncounterLines(enc.text, textEl, () => {
+    showEncounterChoices(enc.choices, choicesEl, textEl, hex, person);
+  });
+}
+
+function revealEncounterLines(lines, el, onDone) {
+  let i = 0;
+  function nextLine() {
+    if (i >= lines.length) { setTimeout(onDone, 300); return; }
+    const p = document.createElement('p');
+    el.appendChild(p);
+    let c = 0;
+    const line = lines[i++];
+    const iv = setInterval(() => {
+      if (c >= line.length) { clearInterval(iv); setTimeout(nextLine, 180); return; }
+      p.textContent += line[c++];
+    }, 22);
+  }
+  nextLine();
+}
+
+function showEncounterChoices(choices, choicesEl, textEl, hex, person) {
+  choices.forEach(choice => {
+    const btn = document.createElement('button');
+    btn.className = 'enc-btn';
+    btn.textContent = `[ ${choice.label} ]`;
+    btn.addEventListener('click', () => {
+      choicesEl.querySelectorAll('.enc-btn').forEach(b => b.disabled = true);
+      if (choice.beats && choice.beats.length) {
+        revealEncounterLines(choice.beats, textEl, () => {
+          applyEncounterOutcome(choice.outcome, textEl, hex, person);
+        });
+      } else {
+        applyEncounterOutcome(choice.outcome, textEl, hex, person);
+      }
+    });
+    choicesEl.appendChild(btn);
+  });
+}
+
+function applyEncounterOutcome(outcome, textEl, hex, person) {
+  if (!outcome) { setTimeout(closeEncounter, 1200); return; }
+
+  const parts = [];
+  if (outcome.food)     { G.food    += outcome.food;    parts.push(`+${outcome.food} food`); }
+  if (outcome.water)    { G.water   += outcome.water;   parts.push(`+${outcome.water} water`); }
+  if (outcome.metals)   { G.metals  += outcome.metals;  parts.push(`+${outcome.metals} metals`); }
+  if (outcome.wood)     { G.wood    += outcome.wood;    parts.push(`+${outcome.wood} wood`); }
+
+  if (outcome.wound && person) {
+    person.wounds = Math.min(3, (person.wounds || 0) + 1);
+    parts.push('⚠ WOUNDED');
+    if (person.wounds >= 3) {
+      G.people = G.people.filter(p => p.id !== person.id);
+      G.scoutUnits = G.scoutUnits.filter(s => s.personId !== person.id);
+      G.population = G.people.length;
+      person = null;
+    }
+  }
+
+  if (outcome.survivor) {
+    const np = generatePerson();
+    G.people.push(np);
+    G.population = G.people.length;
+    parts.push(`◈ ${np.name.split(' ')[0].toUpperCase()} FOUND`);
+    setTimeout(() => {
+      log(`[ ${np.name.toUpperCase()} ]`, 'alert', 0);
+      log(`${np.role}. ${np.trait}`, 'story', 300);
+    }, 1800);
+  }
+
+  updateHUD(); drawMap();
+
+  if (outcome.log && person) {
+    setTimeout(() => log(`◈ ${person.name.split(' ')[0]}: ${outcome.log}`, 'story'), 1600);
+  }
+
+  if (parts.length > 0) {
+    const outEl = document.createElement('div');
+    outEl.className = 'enc-outcome' + (outcome.wound ? ' bad' : '');
+    outEl.textContent = parts.join('   ');
+    textEl.appendChild(outEl);
+  }
+
+  setTimeout(closeEncounter, outcome.nothing ? 1000 : 2200);
+}
+
+function closeEncounter() {
+  const overlay = document.getElementById('encounter-overlay');
+  overlay.classList.remove('active');
+  // Re-open hex-info if player tapped a hex (selectedH preserved)
+  if (selectedH) setTimeout(() => openHexInfo(selectedH), 300);
 }
 
 function openHexInfo(h) {
