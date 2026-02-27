@@ -1030,6 +1030,24 @@ body::before {
   z-index: 25;
   white-space: nowrap;
 }
+/* First-turn tutorial hint — top of map */
+#map-tutorial-hint {
+  display: none;
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,15,0,0.92);
+  border: 1px solid var(--green);
+  color: var(--green);
+  font-size: 11px;
+  letter-spacing: 2px;
+  padding: 7px 16px;
+  pointer-events: none;
+  z-index: 25;
+  white-space: nowrap;
+  animation: action-panel-pulse 2s ease-in-out infinite;
+}
 </style>
 </head>
 <body>
@@ -1242,6 +1260,9 @@ body::before {
 
         <!-- Move mode hint -->
         <div id="move-cursor-hint">→ SELECT DESTINATION — ESC TO CANCEL</div>
+
+        <!-- First-turn tutorial hint -->
+        <div id="map-tutorial-hint">◈ CLICK AN AMBER HEX TO SEND YOUR SCOUT</div>
 
         <!-- Build button (above resource charts) -->
         <button id="build-btn" class="btn" onclick="openBuildPanel()">⚙ BUILD</button>
@@ -1780,8 +1801,6 @@ const ROLE_DEFS = {
               desc:'+2 food per turn while at the vault. Expert forager and hunter — brings back far more than others.' },
   soldier:  { icon:'⚔', label:'Soldier',  speed:3, recon:2, combat:5, morale:3,
               desc:'Survives 1 extra day without food. Stronger in hunts and dangerous ruins. Protects the group.' },
-  mechanic: { icon:'⛭', label:'Mechanic', speed:3, recon:3, combat:2, morale:2,
-              desc:'25% off all construction costs when at the vault. Salvages more metals and timber than anyone.' },
   doctor:   { icon:'⊕', label:'Doctor',   speed:2, recon:2, combat:1, morale:5,
               desc:'While alive, all survivors endure 1 extra day of starvation. Irreplaceable. Never send alone.' },
 };
@@ -2288,12 +2307,22 @@ function bootScanner() {
     setTimeout(() => {
       if (DEV_SKIP) return;
       setActions([
-        { id:'recv',    label:'[ DECODE SIGNAL ]',   style:'amber',  action: decodeSignal },
         { id:'roster',  label:'[ ROSTER ]',          style:'',       action: ()=>showPeoplePanel(false) },
         { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
       ]);
     }, 1300);
   }, 3000);
+}
+
+function showMapTutorial() {
+  if (G.turn <= 1) {
+    const el = document.getElementById('map-tutorial-hint');
+    if (el) el.style.display = 'block';
+  }
+}
+function hideMapTutorial() {
+  const el = document.getElementById('map-tutorial-hint');
+  if (el) el.style.display = 'none';
 }
 
 function unlockMap() {
@@ -2303,6 +2332,7 @@ function unlockMap() {
   revealAround(0, 0, G.scanRange);
   // Switch to map tab so panel is visible and canvas-wrap has real dimensions
   switchTab('map');
+  setTimeout(showMapTutorial, 600);
   // Double rAF: first lets display:flex apply, second lets layout paint
   requestAnimationFrame(() => requestAnimationFrame(() => { resizeMap(); drawMap(); }));
 }
@@ -2373,7 +2403,6 @@ function triggerContact() {
       G.water += 5;
       updateHUD();
       setActions([
-        { id:'recv',    label:'[ DECODE SIGNAL ]',   style:'amber',  action: decodeSignal },
         { id:'roster',  label:'[ ROSTER ]',          style:'',       action: ()=>showPeoplePanel(false) },
         { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
       ]);
@@ -2440,7 +2469,6 @@ function triggerExpansion() {
     logGap();
     setActions([
       { id:'scan',    label:'[ EXPAND SCAN ]',     style:'',       action: expandScan },
-      { id:'recv',    label:'[ DECODE SIGNAL ]',   style:'amber',  action: decodeSignal },
       { id:'scout',   label:'[ SEND SCOUT ]',      style:'',       action: sendScout },
       { id:'recruit', label:'[ RECRUIT ]',         style:'',       action: recruit },
       { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
@@ -3179,6 +3207,7 @@ function handleMapTap(sx,sy) {
 }
 
 function openHexInfo(h) {
+  hideMapTutorial();
   const el=document.getElementById('hex-info');
   const ter=HEX_TERRAIN[h.terrain];
   document.getElementById('hi-title').textContent =
@@ -3364,33 +3393,22 @@ function openBuildPanel() {
   hdr.appendChild(closeBtn);
   body.appendChild(hdr);
 
-  const hasMechanic = G.people.some(p => p.role === 'mechanic' && p.status === 'vault');
-
   const hint = document.createElement('div');
   hint.style.cssText='font-size:9px;color:var(--green-dim);letter-spacing:1px;margin-bottom:6px;line-height:1.5;';
   hint.textContent='Select a structure, then click an explored field hex to place it.';
   body.appendChild(hint);
 
-  if (hasMechanic) {
-    const disc = document.createElement('div');
-    disc.style.cssText='font-size:9px;color:var(--amber);letter-spacing:1px;margin-bottom:8px;';
-    disc.textContent='⛭ MECHANIC IN VAULT — 25% CONSTRUCTION DISCOUNT';
-    body.appendChild(disc);
-  }
-
   for (const [bk, bld] of Object.entries(HEX_BUILDINGS)) {
-    const costMetals = hasMechanic ? Math.floor(bld.costMetals * 0.75) : bld.costMetals;
-    const costWood   = hasMechanic ? Math.floor(bld.costWood   * 0.75) : bld.costWood;
-    const canAfford  = G.metals >= costMetals && G.wood >= costWood;
-    const costStr    = [costMetals>0?`${costMetals} metals`:'', costWood>0?`${costWood} wood`:''].filter(Boolean).join(', ');
+    const canAfford  = G.metals >= bld.costMetals && G.wood >= bld.costWood;
+    const costStr    = [bld.costMetals>0?`${bld.costMetals} metals`:'', bld.costWood>0?`${bld.costWood} wood`:''].filter(Boolean).join(', ');
     const btn = document.createElement('button');
     btn.className = 'btn ' + (canAfford ? 'build-affordable' : 'build-locked');
     btn.style.cssText = 'font-size:11px;text-align:left;padding:7px 10px;margin-top:4px;width:100%;';
     let missingStr = '';
     if (!canAfford) {
       const need = [];
-      if (G.metals < costMetals) need.push(`${costMetals - G.metals} metals`);
-      if (G.wood   < costWood)   need.push(`${costWood   - G.wood  } wood`);
+      if (G.metals < bld.costMetals) need.push(`${bld.costMetals - G.metals} metals`);
+      if (G.wood   < bld.costWood)   need.push(`${bld.costWood   - G.wood  } wood`);
       missingStr = `<br><span style="color:#993333;font-size:9px;">✗ NEED: ${need.join(', ')}</span>`;
     }
     const labelColor  = canAfford ? 'var(--green-dim)' : '#664444';
@@ -3434,18 +3452,14 @@ function handleBuildPlacement(hex) {
   if (!hex.explored)           { toast('HEX NOT EXPLORED'); cancelBuildMode(); return; }
   if (hex.building)            { toast('ALREADY BUILT HERE'); cancelBuildMode(); return; }
   if (hex.terrain==='WATER' && pendingBuildType==='GROWLIGHT') { toast('CANNOT BUILD GROW LIGHTS ON WATER'); cancelBuildMode(); return; }
-  const hasMechanic = G.people.some(p => p.role === 'mechanic' && p.status === 'vault');
-  const costMetals  = hasMechanic ? Math.floor(bld.costMetals * 0.75) : bld.costMetals;
-  const costWood    = hasMechanic ? Math.floor(bld.costWood   * 0.75) : bld.costWood;
 
-  if (G.metals < costMetals || G.wood < costWood) { toast('NOT ENOUGH RESOURCES'); cancelBuildMode(); return; }
+  if (G.metals < bld.costMetals || G.wood < bld.costWood) { toast('NOT ENOUGH RESOURCES'); cancelBuildMode(); return; }
 
-  G.metals -= costMetals;
-  G.wood   -= costWood;
+  G.metals -= bld.costMetals;
+  G.wood   -= bld.costWood;
   hex.building = pendingBuildType;
   updateHUD(); drawMap();
   log(`[ ${bld.label.toUpperCase()} CONSTRUCTED ]`, 'action');
-  if (hasMechanic) log(`⛭ mechanic discount applied. -25% materials.`, 'story', 200);
   log(`${bld.desc}`, 'story', 400);
   logGap(); G.discoveries++;
   cancelBuildMode();
@@ -3455,7 +3469,6 @@ function handleBuildPlacement(hex) {
 function getRoleActionBonus(person, actKey) {
   const table = {
     farmer:   { forage: 3, hunt: 2, chop_wood: 1 },
-    mechanic: { scavenge_metals: 3, mine_ore: 3, chop_wood: 3 },
     soldier:  { hunt: 2, scavenge_metals: 1, mine_ore: 1 },
     scout:    { forage: 1 },
     doctor:   {},
@@ -3863,7 +3876,6 @@ function restoreButtons() {
   if (G.phase >= 4) {
     setActions([
       { id:'scan',    label:'[ EXPAND SCAN ]',     style:'',       action: expandScan },
-      { id:'recv',    label:'[ DECODE SIGNAL ]',   style:'amber',  action: decodeSignal },
       { id:'scout',   label:'[ SEND SCOUT ]',      style:'',       action: sendScout },
       { id:'recruit', label:'[ RECRUIT ]',         style:'',       action: recruit },
       { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
@@ -3871,13 +3883,11 @@ function restoreButtons() {
   } else if (G.phase === 3) {
     setActions([
       { id:'scan',    label:'[ EXPAND SCAN ]',     style:'',       action: expandScan },
-      { id:'recv',    label:'[ DECODE SIGNAL ]',   style:'amber',  action: decodeSignal },
       { id:'scout',   label:'[ SEND SCOUT ]',      style:'',       action: sendScout },
       { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
     ]);
   } else if (G.phase === 2) {
     setActions([
-      { id:'recv',    label:'[ DECODE SIGNAL ]',   style:'amber',  action: decodeSignal },
       { id:'endturn', label:'[ END DAY ]',      style:'primary', action: nextTurn },
     ]);
   } else if (G.phase === 1) {
@@ -3912,13 +3922,12 @@ function devSkipToMap() {
   G.population = G.people.length;
   generateWorld();
   revealAround(0, 0, G.scanRange);
-  unlockMap(); drawMap(); updateHUD();
+  unlockMap(); drawMap(); updateHUD(); setTimeout(showMapTutorial, 600);
   document.getElementById('log').innerHTML = '';
   log('── DEV MODE — SKIPPING INTRO ──', 'alert');
   log(`vault systems online. map active. 1 survivor registered.`, 'sys', 200);
   logGap();
   setActions([
-    { id:'recv',    label:'[ DECODE SIGNAL ]',   style:'amber',  action: decodeSignal },
     { id:'roster',  label:'[ ROSTER ]',          style:'',       action: ()=>showPeoplePanel(false) },
     { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
   ]);
