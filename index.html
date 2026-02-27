@@ -2226,7 +2226,7 @@ function checkSystemsProgress() {
 function bootScanner() {
   G.phase = 2;
   G.systems.scanner = true;
-  G.scanRange = 3;
+  G.scanRange = 1;
   updateHUD();
 
   log('[ EXECUTING: SURFACE SCANNER BOOT ]', 'action');
@@ -2925,9 +2925,7 @@ function dispatchScoutTo(hex, person) {
     const person = G.people.find(p=>p.id===scout.personId);
     if (person) { person.status = 'mission'; }  // arrived at destination
     // Scouts reveal 4 hexes; others scale with recon stat (1–3)
-    const reconRange = person
-      ? (person.role === 'scout' ? 4 : Math.min(3, 1 + Math.floor((person.stats.recon-1)/2)))
-      : 2;
+    const reconRange = person ? (person.role === 'scout' ? 2 : 1) : 1;
     revealAround(hex.q, hex.r, reconRange);
     hex.explored = true;
     G.discoveries++;
@@ -3801,7 +3799,7 @@ function devSkipToMap() {
   document.getElementById('char-create').style.display = 'none';
   document.getElementById('splash').style.display = 'none';
   G.phase = 3; G.power = 80; G.food = 30; G.water = 20; G.metals = 12; G.wood = 8;
-  G.population = 1; G.turn = 1; G.scanRange = 4;
+  G.population = 1; G.turn = 1; G.scanRange = 1;
   G.systems = { power:true, water:true, comms:true, scanner:true, fabricator:false };
   // Keep player char if already created, otherwise generate placeholder
   const player = G.people.find(p=>p.isPlayer) || (() => {
