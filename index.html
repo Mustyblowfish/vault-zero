@@ -984,7 +984,7 @@ body::before {
     display: block;
     position: absolute;
     bottom: 14px;
-    right: 14px;
+    left: 14px;
     background: rgba(0,20,5,0.92);
     border: 1px solid var(--green-dim);
     color: var(--green);
@@ -1018,9 +1018,9 @@ body::before {
     flex-direction: column;
     gap: 5px;
     position: absolute;
-    bottom: 70px;
+    top: 12px;
     left: 12px;
-    right: 90px; /* leave room for end-day btn */
+    right: 12px;
     pointer-events: none;
     z-index: 21;
   }
@@ -3909,10 +3909,21 @@ canvas.addEventListener('touchmove',e=>{
     pinchDist=nd; drawMap();
   }
 },{passive:false});
+let lastTapTime=0, lastTapPos=null;
 canvas.addEventListener('touchend',e=>{
   if(!isDragging&&e.changedTouches.length===1){
     const p=canvasPos(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
-    handleMapTap(p.x,p.y);
+    const now=Date.now();
+    const dt=now-lastTapTime;
+    const dist=lastTapPos?Math.hypot(p.x-lastTapPos.x,p.y-lastTapPos.y):999;
+    if(dt<320&&dist<44){
+      // double-tap detected
+      lastTapTime=0; lastTapPos=null;
+      handleMapDblTap(p.x,p.y);
+    } else {
+      lastTapTime=now; lastTapPos=p;
+      handleMapTap(p.x,p.y);
+    }
   }
   isDragging=false;
 },{passive:false});
@@ -4016,6 +4027,17 @@ async function doRestart() {
 // Start audio on first interaction (browser autoplay policy)
 document.addEventListener('click', initAudio, { once: true });
 document.addEventListener('touchstart', initAudio, { once: true });
+
+// iOS: AudioContext gets suspended when app is backgrounded — resume on return
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+});
+// Also catch focus events (covers some edge cases)
+window.addEventListener('focus', () => {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+});
 
 // ESC cancels build / move placement modes
 document.addEventListener('keydown', e => {
