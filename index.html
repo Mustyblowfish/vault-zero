@@ -2940,7 +2940,7 @@ function dispatchScoutTo(hex, person) {
   const def = ROLE_DEFS[person.role];
   playMoveSound();
   log(`[ ${person.name.toUpperCase()} DISPATCHED ]`,'action');
-  log(`${def.icon} ${person.role} — heading to ${HEX_TERRAIN[hex.terrain].label.toLowerCase()}.`,'sys',300);
+  log(`${person.name.split(' ')[0]} (${person.role}) — heading to ${HEX_TERRAIN[hex.terrain].label.toLowerCase()}.`,'sys',300);
 
   // Animate travel
   animateScout(scout, () => {
@@ -2997,20 +2997,21 @@ function animateScout(scout, onDone) {
 }
 
 const ARRIVAL_MSGS = {
-  WASTE:    ['ash and broken glass. the scout marks the location and moves on.', 'nothing lives here. perhaps nothing ever will again.', 'a rusted sign, unreadable. the wind is the only sound.'],
-  RUIN:     ['collapsed towers. something may still be salvageable.', 'the scout finds a sealed container. we\'ll send someone back.', 'graffiti on a wall: WE WERE HERE. dated 14 years ago.'],
-  FOREST:   ['trees. real ones. the scout stops for a long moment, just looking.', 'birdsong. the scout radios back and doesn\'t say anything for a while.', 'a small camp, recently abandoned. someone else is out there.'],
-  WATER:    ['a reservoir, largely intact. water tests show it\'s safe. this changes things.', 'the scout fills their canteen and sits by the edge. we can hear them breathing.', 'a lake. ducks. actual ducks. the scout laughs — first time we\'ve heard that.'],
-  GRASS:    ['wildflowers growing through the concrete. the scout sends us a photo.', 'the land is healing. slowly, but it\'s healing.', 'tall grass, knee-high. the scout says it smells like earth after rain.'],
-  MOUNTAIN: ['steep terrain. difficult passage, but the scout finds a route.', 'from the ridge, they can see for miles. they describe what they see for twenty minutes.', 'ore deposits visible in the rock face. we\'ll need equipment.'],
-  BUNKER:   ['another vault. the door is sealed. the scout tries the emergency code.', 'something below. the scout hears movement. they wait.', 'a shelter, different design from ours. older. they\'re looking for a way in.'],
+  WASTE:    ['{name} marks the location and moves on. ash and broken glass.', 'nothing lives here. perhaps nothing ever will again.', 'a rusted sign, unreadable. {name} radios in. the wind is the only sound.'],
+  RUIN:     ['collapsed towers. something may still be salvageable.', '{name} finds a sealed container. we\'ll send someone back.', 'graffiti on a wall: WE WERE HERE. dated 14 years ago.'],
+  FOREST:   ['trees. real ones. {name} stops for a long moment, just looking.', 'birdsong. {name} radios back and doesn\'t say anything for a while.', 'a small camp, recently abandoned. someone else is out there.'],
+  WATER:    ['a reservoir, largely intact. water tests show it\'s safe. this changes things.', '{name} fills their canteen and sits by the edge. we can hear them breathing.', 'a lake. ducks. actual ducks. {name} laughs — first time we\'ve heard that.'],
+  GRASS:    ['wildflowers growing through the concrete. {name} sends us a photo.', 'the land is healing. slowly, but it\'s healing.', 'tall grass, knee-high. {name} says it smells like earth after rain.'],
+  MOUNTAIN: ['steep terrain. difficult passage, but {name} finds a route.', 'from the ridge, {name} can see for miles. the description takes twenty minutes.', 'ore deposits visible in the rock face. we\'ll need equipment.'],
+  BUNKER:   ['another vault. the door is sealed. {name} tries the emergency code.', 'something below. {name} hears movement. radio goes quiet.', 'a shelter, different design from ours. older. {name} is looking for a way in.'],
 };
 
 function arrivalNarrative(hex, person) {
-  const msgs = ARRIVAL_MSGS[hex.terrain] || ['the scout reports in. all clear.'];
-  const msg = msgs[Math.floor(Math.random()*msgs.length)];
-  const who = person ? person.name.split(' ')[0] : 'the scout';
-  log(`${who} reports in.`, 'sys', 0);
+  const firstName = person ? person.name.split(' ')[0] : 'scout';
+  const rawMsgs = ARRIVAL_MSGS[hex.terrain] || ['{name} reports in. all clear.'];
+  const raw = rawMsgs[Math.floor(Math.random()*rawMsgs.length)];
+  const msg = raw.replace(/\{name\}/g, firstName);
+  log(`${firstName} reports in.`, 'sys', 0);
   log(msg, 'story', 300);
 
   // Special events
@@ -3251,6 +3252,7 @@ function openHexInfo(h) {
     btn.style.fontSize='10px';
     btn.textContent='[ INVESTIGATE BUNKER ]';
     btn.addEventListener('click',()=>{
+      const investigator = personHere ? personHere.name.split(' ')[0] : 'scout';
       h.explored=true; closeHexInfo();
       const found=Math.random()<0.6;
       if(found){
@@ -3258,16 +3260,16 @@ function openHexInfo(h) {
         G.people.push(p);
         G.population += 1; G.food += 10; G.water += 5; updateHUD();
         log(`[ BUNKER UNSEALED ]`,'action');
-        log(`one survivor. still alive.`,'story',600);
+        log(`${investigator} forces the door. one survivor. still alive.`,'story',600);
         logGap();
-        log(`name: ${p.name}.`,'alert',900);
+        log(`${p.name} — ${p.role} ${ROLE_DEFS[p.role].icon}`,'alert',900);
         log(`${p.role}.`,'sys',1100);
         log(p.trait,'story',1500);
         logGap();
         if(G.phase===3&&G.population>=5) setTimeout(triggerExpansion,2000);
       } else {
         log(`[ BUNKER UNSEALED ]`,'action');
-        log(`empty. but the supply cache was intact.`,'story',600);
+        log(`${investigator} forces the door. empty — but the supply cache was intact.`,'story',600);
         G.food+=20; updateHUD();
       }
       logGap(); drawMap();
@@ -3420,20 +3422,21 @@ function performHexAction(person, hex, actKey) {
   const amount = Math.max(1, ad.base + statBonus + roleBonus + Math.floor(Math.random() * 3));
   const roleBonusTxt = roleBonus > 0 ? ` [${ROLE_DEFS[person.role].icon}+${roleBonus}]` : '';
 
-  log(`[ ${person.name.split(' ')[0].toUpperCase()} — ${ad.label.toUpperCase()} ]`, 'action');
+  const firstName = person.name.split(' ')[0];
+  log(`[ ${firstName.toUpperCase()} — ${ad.label.toUpperCase()} ]`, 'action');
 
   if (ad.yields === 'food') {
     G.food += amount;
-    log(`found ${amount} food.${roleBonusTxt}`, 'story', 300);
+    log(`${firstName} found ${amount} food.${roleBonusTxt}`, 'story', 300);
   } else if (ad.yields === 'water') {
     G.water += amount;
-    log(`collected ${amount} units of water.`, 'story', 300);
+    log(`${firstName} collected ${amount} units of water.`, 'story', 300);
   } else if (ad.yields === 'metals') {
     G.metals += amount;
-    log(`scavenged ${amount} metals.${roleBonusTxt}`, 'story', 300);
+    log(`${firstName} scavenged ${amount} metals.${roleBonusTxt}`, 'story', 300);
   } else if (ad.yields === 'wood') {
     G.wood += amount;
-    log(`gathered ${amount} wood.${roleBonusTxt}`, 'story', 300);
+    log(`${firstName} gathered ${amount} wood.${roleBonusTxt}`, 'story', 300);
   } else if (ad.yields === 'morale') {
     // Scout and doctor have much higher survivor-find chance
     const roleSearchBonus = { scout: 0.20, doctor: 0.12 }[person.role] || 0;
@@ -3443,13 +3446,13 @@ function performHexAction(person, hex, actKey) {
       G.people.push(npc);
       G.population = G.people.length;
       const def = ROLE_DEFS[npc.role];
-      log(`a survivor. alive.`, 'story', 300);
+      log(`${firstName} found a survivor. still alive.`, 'story', 300);
       logGap();
       log(`${npc.name} — ${npc.role} ${def.icon}`, 'alert', 600);
       log(npc.trait, 'story', 900);
       logGap();
     } else {
-      log(`no one. but signs someone passed through recently.`, 'story', 300);
+      log(`${firstName} found no one. but signs someone passed through recently.`, 'story', 300);
     }
   }
   updateHUD();
