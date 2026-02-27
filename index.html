@@ -1045,6 +1045,27 @@ body::before {
   100% { opacity: 0; }
 }
 
+/* ── Combat popup ── */
+#combat-popup {
+  display: none;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15,2,2,0.97);
+  border: 1px solid var(--red);
+  padding: 12px 18px;
+  z-index: 36;
+  min-width: 190px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 0 20px rgba(255,48,48,0.3);
+}
+.cp-title { color: var(--red); font-size: 13px; letter-spacing: 3px; margin-bottom: 8px; text-shadow: 0 0 8px var(--red); }
+.cp-body  { color: var(--green-dim); font-size: 11px; letter-spacing: 1px; line-height: 2; }
+.cp-wound { color: var(--red); }
+.cp-dodge { color: var(--amber); }
+.cp-kill  { color: var(--green); }
+
 /* ── Game Over overlay ── */
 #game-over {
   display: none;
@@ -1374,6 +1395,12 @@ body::before {
 
         <!-- Mobile: End Day button always visible on map tab -->
         <button id="map-end-day-btn" disabled onclick="nextTurn()">[ END DAY ]</button>
+
+        <!-- Combat resolution popup -->
+        <div id="combat-popup">
+          <div class="cp-title">⚔ COMBAT</div>
+          <div class="cp-body" id="cp-body"></div>
+        </div>
 
       </div>
     </div>
@@ -1914,6 +1941,12 @@ const ROLE_DEFS = {
 };
 const ROLE_KEYS = Object.keys(ROLE_DEFS);
 
+// ── Enemy unit definitions ──
+const ENEMY_TYPES = {
+  raider: { icon:'⚔', label:'Raider', attack:2, defence:1, maxHp:3, color:'#ff3030', minTurn:5  },
+  mutant: { icon:'✕', label:'Mutant', attack:3, defence:2, maxHp:5, color:'#ff6600', minTurn:15 },
+};
+
 function statBar(val) {
   const filled = '█'.repeat(val);
   const empty  = '░'.repeat(5-val);
@@ -1939,6 +1972,7 @@ function generatePerson(forceRole) {
     actionsLeft: 1,
     movesLeft: 1,
     starvingDays: 0,
+    wounds: 0,
     stats: {
       speed:  Math.max(1, Math.min(5, def.speed  + variance())),
       recon:  Math.max(1, Math.min(5, def.recon  + variance())),
@@ -2176,6 +2210,7 @@ function mapLogFlash(text, type) {
 function showGameOver(cause) {
   const causeLabels = {
     starvation: 'CIVILIZATION ENDED BY: STARVATION',
+    combat:     'CIVILIZATION ENDED BY: HOSTILE CONTACT',
   };
   document.getElementById('go-cause').textContent = causeLabels[cause] || 'SIMULATION TERMINATED';
 
@@ -2741,6 +2776,22 @@ function nextTurn() {
   if (G.food  <= 2 && G.food > 0)  { logGap(); log('WARNING: food supply critical. send people to forage.', 'error', 650); }
   if (G.water <= 2)  { logGap(); log('WARNING: water critical.', 'error', 700); }
   logGap();
+
+  // ── Doctor heals most-wounded person at vault ──
+  const doctorHealer = G.people.find(p => p.role === 'doctor' && p.status === 'vault');
+  if (doctorHealer) {
+    const hurt = G.people
+      .filter(p => p.status === 'vault' && (p.wounds||0) > 0)
+      .sort((a,b) => b.wounds - a.wounds)[0];
+    if (hurt) {
+      hurt.wounds = Math.max(0, hurt.wounds - 1);
+      log(`⊕ ${doctorHealer.name.split(' ')[0]} treats ${hurt.name.split(' ')[0]}'s wounds.`, 'story', 200);
+    }
+  }
+
+  // ── Spawn and move enemies ──
+  maybeSpawnEnemy();
+  setTimeout(moveEnemies, 400);
 }
 
 const EVENTS = [
@@ -2913,15 +2964,16 @@ function drawMap() {
     drawHex2(h,s.x,s.y);
   }
 
-  // Draw scouts on top
+  // Draw scouts then enemies on top
   drawScouts();
+  drawEnemies();
 
-  // Trigger redraw if any scout is moving (animation)
+  // Trigger redraw if any unit is animating or person has actions
   const anyActionPending = G.scoutUnits.some(sc => {
     if (sc.moving) return true;
     const p = G.people.find(p => p.id === sc.personId);
     return p && p.actionsLeft > 0;
-  });
+  }) || G.enemyUnits.some(e => e.moving);
   if (anyActionPending) requestAnimationFrame(drawMap);
 
   updateMapStats();
@@ -3063,6 +3115,11 @@ G.scoutUnits = [];
 G.nextScoutId = 1;
 G.scoutCooldown = false;
 
+// ── ENEMY UNITS on the map ──
+// G.enemyUnits = [ { id, type, q, r, hp, maxHp, moving, tq, tr, animX, animY } ]
+G.enemyUnits  = [];
+G.nextEnemyId = 1;
+
 const SCOUT_RANGE = 4; // legacy — kept for scan reveal logic
 
 // ── Movement range helpers ──
@@ -3167,6 +3224,10 @@ function dispatchScoutTo(hex, person) {
     revealAround(hex.q, hex.r, reconRange);
     hex.explored = true;
     G.discoveries++;
+
+    // Check if an enemy is on this hex — trigger immediate combat
+    const enemyOnHex = G.enemyUnits.find(e => e.q===hex.q && e.r===hex.r);
+    if (enemyOnHex && person) setTimeout(() => resolveCombat(person, enemyOnHex), 400);
     updateMapStats();
     drawMap();
 
@@ -3206,6 +3267,212 @@ function animateScout(scout, onDone) {
     else { scout.animX=endP.x; scout.animY=endP.y; onDone(); }
   }
   requestAnimationFrame(step);
+}
+
+// ══════════════════════════════════════════════
+//  ENEMY SYSTEM
+// ══════════════════════════════════════════════
+
+function animateEnemy(enemy, onDone) {
+  const startP = h2p(enemy.q, enemy.r);
+  const endP   = h2p(enemy.tq, enemy.tr);
+  const duration = 1100;
+  const startTime = performance.now();
+  function step(now) {
+    const t = Math.min(1, (now - startTime) / duration);
+    const ease = t<0.5 ? 2*t*t : -1+(4-2*t)*t;
+    enemy.animX = startP.x + (endP.x - startP.x)*ease;
+    enemy.animY = startP.y + (endP.y - startP.y)*ease;
+    drawMap();
+    if (t < 1) requestAnimationFrame(step);
+    else { enemy.animX = null; enemy.animY = null; enemy.moving = false; onDone(); }
+  }
+  requestAnimationFrame(step);
+}
+
+function drawEnemies() {
+  for (const enemy of G.enemyUnits) {
+    const p   = h2p(enemy.q, enemy.r);
+    const wx  = enemy.animX !== null ? enemy.animX : p.x;
+    const wy  = enemy.animY !== null ? enemy.animY : p.y;
+    const s   = w2s(wx, wy);
+    const def = ENEMY_TYPES[enemy.type];
+
+    // Glow ring — red
+    ctx2.beginPath(); ctx2.arc(s.x, s.y, HEX_SIZE*0.28, 0, Math.PI*2);
+    ctx2.fillStyle = 'rgba(20,2,2,0.88)'; ctx2.fill();
+    ctx2.strokeStyle = def.color; ctx2.lineWidth = 1.5;
+    ctx2.shadowColor = def.color; ctx2.shadowBlur = 8; ctx2.stroke(); ctx2.shadowBlur = 0;
+
+    // Icon
+    ctx2.fillStyle = def.color;
+    ctx2.font = `${Math.round(HEX_SIZE*0.28)}px monospace`;
+    ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
+    ctx2.shadowColor = def.color; ctx2.shadowBlur = 6;
+    ctx2.fillText(def.icon, s.x, s.y); ctx2.shadowBlur = 0;
+
+    // HP dots below icon
+    const dotR = 2.2, dotGap = 6;
+    for (let i = 0; i < enemy.maxHp; i++) {
+      ctx2.beginPath();
+      ctx2.arc(s.x + (i - (enemy.maxHp-1)/2)*dotGap, s.y + HEX_SIZE*0.44, dotR, 0, Math.PI*2);
+      ctx2.fillStyle = i < enemy.hp ? def.color : '#330000';
+      ctx2.fill();
+    }
+  }
+}
+
+function getEnemyTarget(enemy) {
+  // Target nearest person on the map; fall back to vault
+  let nearestQ = 0, nearestR = 0, nearestDist = Infinity;
+  for (const sc of G.scoutUnits) {
+    const d = hDist(enemy.q, enemy.r, sc.q, sc.r);
+    if (d < nearestDist) { nearestDist = d; nearestQ = sc.q; nearestR = sc.r; }
+  }
+  return { q: nearestQ, r: nearestR };
+}
+
+function moveEnemyToward(enemy) {
+  if (enemy.moving) return;
+  const target = getEnemyTarget(enemy);
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];
+  const neighbors = dirs
+    .map(([dq,dr]) => G.world[hKey(enemy.q+dq, enemy.r+dr)])
+    .filter(h => h && !(h.q===0&&h.r===0));   // enemies don't enter vault
+  if (!neighbors.length) return;
+
+  // Exclude hexes occupied by another stationary enemy
+  const free = neighbors.filter(h =>
+    !G.enemyUnits.some(e => e !== enemy && !e.moving && e.q===h.q && e.r===h.r)
+  );
+  const pool = free.length ? free : neighbors;
+
+  // Step toward target
+  const best = pool.reduce((prev, curr) =>
+    hDist(curr.q,curr.r,target.q,target.r) < hDist(prev.q,prev.r,target.q,target.r) ? curr : prev
+  );
+
+  enemy.tq = best.q; enemy.tr = best.r; enemy.moving = true;
+  animateEnemy(enemy, () => {
+    enemy.q = best.q; enemy.r = best.r;
+    checkEnemyCombat(enemy);
+  });
+}
+
+function moveEnemies() {
+  G.enemyUnits.forEach(e => moveEnemyToward(e));
+}
+
+function checkEnemyCombat(enemy) {
+  const sc = G.scoutUnits.find(s => s.q===enemy.q && s.r===enemy.r && !s.moving);
+  if (!sc) return;
+  const person = G.people.find(p => p.id===sc.personId);
+  if (!person) return;
+  resolveCombat(person, enemy);
+}
+
+function resolveCombat(person, enemy) {
+  const def = ENEMY_TYPES[enemy.type];
+  const firstName = person.name.split(' ')[0];
+
+  // Exchange damage
+  const playerDmg = Math.max(1, Math.ceil(person.stats.combat / 2) + Math.floor(Math.random()*2));
+  enemy.hp = Math.max(0, enemy.hp - playerDmg);
+
+  // Dodge chance scales with combat stat (soldier ~50%, farmer ~10%)
+  const dodged = Math.random() < (person.stats.combat / 10);
+  if (!dodged) person.wounds = (person.wounds || 0) + 1;
+
+  // Terminal log
+  logGap();
+  log(`[ COMBAT — ${firstName.toUpperCase()} vs ${def.label.toUpperCase()} ]`, 'error');
+  log(`${firstName} strikes for ${playerDmg} damage.`, 'sys', 200);
+
+  const enemyLine = enemy.hp <= 0
+    ? `<span class="cp-kill">${def.label} DEFEATED.</span>`
+    : `Enemy HP: ${enemy.hp}/${def.maxHp}`;
+  const personLine = dodged
+    ? `<span class="cp-dodge">${firstName} dodged the blow.</span>`
+    : `<span class="cp-wound">⚠ ${firstName} WOUNDED — ${person.wounds}/3</span>`;
+
+  // Combat popup
+  showCombatPopup([
+    `${firstName} (${person.role})`,
+    `vs  ${def.icon} ${def.label}`,
+    `dealt ${playerDmg} dmg`,
+    dodged ? '✓ dodged' : `⚠ WOUNDED  ${person.wounds}/3`,
+    enemy.hp <= 0 ? '✓ ENEMY DEFEATED' : `Enemy HP: ${enemy.hp}/${def.maxHp}`,
+  ]);
+
+  if (enemy.hp <= 0) {
+    log(`${def.label} eliminated.`, 'story', 400);
+    logGap();
+    G.enemyUnits = G.enemyUnits.filter(e => e !== enemy);
+    drawMap(); return;
+  }
+
+  log(dodged ? `${firstName} dodges.` : `${def.label} strikes ${firstName}. WOUND ${person.wounds}/3.`, dodged ? 'story' : 'error', 400);
+
+  // Check death
+  if ((person.wounds || 0) >= 3) {
+    logGap();
+    log(`[ ${firstName.toUpperCase()} — DIED IN COMBAT ]`, 'error', 600);
+    log(`${person.role}. ${person.trait}`, 'story', 900);
+    logGap();
+    G.people = G.people.filter(p => p.id !== person.id);
+    G.scoutUnits = G.scoutUnits.filter(s => s.personId !== person.id);
+    G.population = G.people.length;
+    updateHUD(); drawMap();
+    if (G.people.length === 0) setTimeout(() => showGameOver('combat'), 2500);
+  }
+}
+
+let combatPopupTimer;
+function showCombatPopup(lines) {
+  const el   = document.getElementById('combat-popup');
+  const body = document.getElementById('cp-body');
+  body.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+  el.style.display = 'block';
+  clearTimeout(combatPopupTimer);
+  combatPopupTimer = setTimeout(hideCombatPopup, 4000);
+}
+function hideCombatPopup() {
+  const el = document.getElementById('combat-popup');
+  if (el) el.style.display = 'none';
+}
+
+function maybeSpawnEnemy() {
+  if (G.phase < 3 || G.turn < 5) return;
+  if (G.enemyUnits.length >= 4) return;
+  if (Math.random() > 0.35) return;
+
+  // Find revealed edge hexes (adjacent to at least one unrevealed hex)
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,-1],[-1,1]];
+  const candidates = Object.values(G.world).filter(h => {
+    if (!h.revealed) return false;
+    if (h.q===0 && h.r===0) return false;
+    if (hDist(h.q, h.r, 0, 0) < 3) return false;
+    if (G.scoutUnits.some(s => s.q===h.q && s.r===h.r)) return false;
+    if (G.enemyUnits.some(e => e.q===h.q && e.r===h.r)) return false;
+    return dirs.some(([dq,dr]) => {
+      const nb = G.world[hKey(h.q+dq, h.r+dr)];
+      return !nb || !nb.revealed;
+    });
+  });
+  if (!candidates.length) return;
+
+  const hex  = candidates[Math.floor(Math.random()*candidates.length)];
+  const type = G.turn >= 15 && Math.random() < 0.3 ? 'mutant' : 'raider';
+  const def  = ENEMY_TYPES[type];
+
+  G.enemyUnits.push({
+    id: G.nextEnemyId++, type,
+    q: hex.q, r: hex.r, tq: hex.q, tr: hex.r,
+    hp: def.maxHp, maxHp: def.maxHp,
+    moving: false, animX: null, animY: null,
+  });
+  log(`⚠ ${def.label.toUpperCase()} DETECTED — ${(HEX_TERRAIN[hex.terrain]||{label:'unknown'}).label}.`, 'error', 300);
+  drawMap();
 }
 
 const ARRIVAL_MSGS = {
@@ -3449,7 +3716,11 @@ function openHexInfo(h) {
     const availActions = HEX_ACTIONS[h.terrain] || ['forage','search_survivors'];
     const aLabel = document.createElement('div');
     aLabel.style.cssText='font-size:10px;color:var(--green-dim);letter-spacing:2px;margin:6px 0 3px;';
-    aLabel.textContent = `${personHere.name.split(' ')[0].toUpperCase()} — CHOOSE ACTION:`;
+    const woundStr = (personHere.wounds||0) > 0
+      ? ` ⚠ WOUNDS: ${'●'.repeat(personHere.wounds||0)}${'○'.repeat(Math.max(0,3-(personHere.wounds||0)))}`
+      : '';
+    aLabel.textContent = `${personHere.name.split(' ')[0].toUpperCase()} — CHOOSE ACTION:${woundStr}`;
+    if ((personHere.wounds||0) > 0) aLabel.style.color = 'var(--red)';
     acts.appendChild(aLabel);
     availActions.forEach(actKey => {
       const ad = ACTION_DEFS[actKey];
@@ -3732,7 +4003,8 @@ function showPeoplePanel(forDispatch) {
       <div style="font-size:12px;color:var(--green-dim);margin:3px 0;">${p.role} — ${p.trait}</div>
       <div style="font-size:11px;color:#005500;letter-spacing:1px;margin-top:4px;">
         SPD ${statBar(p.stats.speed)}  RCN ${statBar(p.stats.recon)}  CMB ${statBar(p.stats.combat)}  MRL ${statBar(p.stats.morale)}  RANGE ${getMoveRange(p)}
-      </div>`;
+      </div>
+      ${(p.wounds||0)>0 ? `<div style="font-size:11px;color:var(--red);letter-spacing:1px;margin-top:3px;">WOUNDS: ${'●'.repeat(p.wounds||0)}${'○'.repeat(Math.max(0,3-(p.wounds||0)))}</div>` : ''}`;
 
     if (canMove) {
       row.addEventListener('click', () => {
@@ -4072,6 +4344,11 @@ function saveGame() {
       progress:0, returning:false, animX:null, animY:null
     })),
     nextScoutId: G.nextScoutId,
+    enemyUnits: G.enemyUnits.map(e => ({
+      id:e.id, type:e.type, q:e.q, r:e.r, hp:e.hp, maxHp:e.maxHp,
+      moving:false, tq:e.q, tr:e.r, animX:null, animY:null
+    })),
+    nextEnemyId: G.nextEnemyId,
     people: G.people,
     resourceHistory: G.resourceHistory,
   };
@@ -4105,7 +4382,9 @@ async function loadGame() {
     G.scoutUnits = s.scoutUnits || [];
     G.nextScoutId = s.nextScoutId || 1;
     G.scoutCooldown = false;
-    G.people = s.people || [];
+    G.enemyUnits  = (s.enemyUnits || []).map(e => ({ ...e, moving:false, animX:null, animY:null }));
+    G.nextEnemyId = s.nextEnemyId || 1;
+    G.people = (s.people || []).map(p => ({ wounds:0, ...p }));
     G.resourceHistory = s.resourceHistory || { power:[], food:[], water:[], population:[] };
     return true;
   } catch(e) { return false; }
@@ -4149,6 +4428,7 @@ function devSkipToMap() {
   document.getElementById('splash').style.display = 'none';
   G.phase = 3; G.power = 80; G.food = 8; G.water = 15; G.metals = 0; G.wood = 0;
   G.population = 1; G.turn = 1; G.scanRange = 1;
+  G.enemyUnits = []; G.nextEnemyId = 1;
   G.systems = { power:true, water:true, comms:true, scanner:true, fabricator:false };
   // Keep player char if already created, otherwise generate placeholder
   const player = G.people.find(p=>p.isPlayer) || (() => {
