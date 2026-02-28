@@ -1258,7 +1258,7 @@ body::before {
   background: rgba(0,10,0,0.85);
 }
 #vb-title {
-  font-size: 10px; letter-spacing: 3px;
+  font-size: 13px; letter-spacing: 3px;
   color: var(--amber); margin-bottom: 7px;
 }
 #vb-o2-row {
@@ -1291,8 +1291,8 @@ body::before {
   color: var(--green); min-width: 28px; text-align: right;
 }
 #vb-status-msg {
-  font-size: 9px; letter-spacing: 2px;
-  color: var(--green-dim); margin-top: 5px; min-height: 14px;
+  font-size: 11px; letter-spacing: 2px;
+  color: var(--green); margin-top: 5px; min-height: 16px;
 }
 
 /* ── Resource strip ── */
@@ -1309,8 +1309,8 @@ body::before {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
 }
 .vb-res-cell:last-child { border-right: none; }
-.vb-res-cell .vb-rl { font-size: 7px; letter-spacing: 2px; color: #003300; }
-.vb-res-cell .vb-rv { font-size: 13px; color: var(--green); }
+.vb-res-cell .vb-rl { font-size: 9px; letter-spacing: 2px; color: var(--green-dim); }
+.vb-res-cell .vb-rv { font-size: 15px; color: var(--green); }
 
 /* ── 2×2 task grid ── */
 #vb-tasks {
@@ -1352,18 +1352,18 @@ body::before {
   border-bottom: 1px solid rgba(0,255,65,0.05);
   flex-shrink: 0;
 }
-.vbm-icon { font-size: 15px; color: var(--mc, var(--green)); line-height: 1; }
+.vbm-icon { font-size: 19px; color: var(--mc, var(--green)); line-height: 1; }
 .vbm-title {
-  font-size: 8px; letter-spacing: 3px;
-  color: var(--green-dim); flex: 1;
+  font-size: 10px; letter-spacing: 3px;
+  color: var(--green); flex: 1;
   text-transform: uppercase;
 }
 .vbm-tag {
-  font-size: 8px; letter-spacing: 2px;
-  padding: 2px 7px;
+  font-size: 9px; letter-spacing: 2px;
+  padding: 2px 8px;
   border: 1px solid;
-  border-color: rgba(0,80,0,0.5);
-  color: #004400;
+  border-color: rgba(0,130,0,0.6);
+  color: var(--green-dim);
   transition: all 0.4s;
 }
 .vbm-tag.online {
@@ -1371,6 +1371,18 @@ body::before {
   color: var(--mc, var(--green));
   box-shadow: 0 0 8px rgba(255,255,255,0.05);
 }
+
+/* Module cost/reward strip */
+.vb-cr {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 14px 5px;
+  font-size: 9px; letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-wrap: wrap;
+}
+.vb-cr-cost   { color: var(--amber); opacity: 0.85; }
+.vb-cr-sep    { color: rgba(255,255,255,0.2); }
+.vb-cr-reward { color: var(--mc, var(--green)); opacity: 0.85; }
 
 /* Module body */
 .vbm-body {
@@ -1383,8 +1395,8 @@ body::before {
    POWER MODULE — breaker panel
    ───────────────────────────────────── */
 #vb-power-hint {
-  font-size: 8px; letter-spacing: 1px;
-  color: #443300; line-height: 1.5;
+  font-size: 10px; letter-spacing: 1px;
+  color: #997700; line-height: 1.5;
 }
 #vb-breaker-grid {
   display: grid;
@@ -1398,7 +1410,7 @@ body::before {
 }
 .vb-breaker:hover:not(.brk-on) { background: rgba(255,176,0,0.04); }
 .vb-breaker-label {
-  font-size: 7px; letter-spacing: 1px; color: #443300;
+  font-size: 8px; letter-spacing: 1px; color: #887700;
   transition: color 0.2s;
 }
 .vb-breaker.brk-on .vb-breaker-label { color: var(--amber); }
@@ -1423,8 +1435,8 @@ body::before {
   box-shadow: 0 -3px 8px rgba(255,176,0,0.4);
 }
 .vb-breaker-state {
-  font-size: 7px; letter-spacing: 1px;
-  color: #331800; transition: color 0.2s;
+  font-size: 8px; letter-spacing: 1px;
+  color: #665500; transition: color 0.2s;
 }
 .vb-breaker.brk-on .vb-breaker-state { color: var(--amber); }
 
@@ -1453,8 +1465,8 @@ body::before {
   gap: 0; padding: 6px 0 4px;
 }
 .vb-pipe-node { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.vb-pn-label { font-size: 7px; letter-spacing: 1px; color: #002233; transition: color 0.4s; }
-.vb-pn-label.flowing { color: #006688; }
+.vb-pn-label { font-size: 9px; letter-spacing: 1px; color: #004455; transition: color 0.4s; }
+.vb-pn-label.flowing { color: #00aacc; }
 .vb-valve {
   width: 34px; height: 34px; border-radius: 50%;
   border: 2px solid #002233; background: #000d14;
@@ -1481,16 +1493,16 @@ body::before {
 .vb-water-choices { display: flex; flex-direction: column; gap: 6px; flex: 1; justify-content: center; }
 .vb-wchoice {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 10px; letter-spacing: 2px; padding: 9px 12px;
-  background: rgba(0,40,60,0.4); border: 1px solid #003344;
-  color: #005566; cursor: pointer; text-align: left;
+  font-size: 12px; letter-spacing: 2px; padding: 9px 12px;
+  background: rgba(0,40,60,0.4); border: 1px solid #005577;
+  color: #0088aa; cursor: pointer; text-align: left;
   transition: all 0.2s; line-height: 1;
 }
 .vb-wchoice:hover { background: rgba(0,80,120,0.25); border-color: #00ccff; color: #00ccff; }
 .vb-wchoice .vb-wcost {
-  display: block; font-size: 8px; color: #003344; margin-top: 4px; letter-spacing: 1px;
+  display: block; font-size: 10px; color: #006688; margin-top: 4px; letter-spacing: 1px;
 }
-.vb-wchoice:hover .vb-wcost { color: #0088aa; }
+.vb-wchoice:hover .vb-wcost { color: #00aacc; }
 
 /* ─────────────────────────────────────
    SCAVENGE MODULE — room door cards
@@ -1512,15 +1524,15 @@ body::before {
 }
 .vb-room.vb-opened { cursor: default; border-color: #001800; background: #020e03; }
 .vb-room-name {
-  font-size: 7px; letter-spacing: 1px; color: #003300;
+  font-size: 9px; letter-spacing: 1px; color: var(--green-dim);
   text-align: center; line-height: 1.4; margin-bottom: 3px;
 }
-.vb-room:hover:not(.vb-opened) .vb-room-name { color: var(--green-dim); }
+.vb-room:hover:not(.vb-opened) .vb-room-name { color: var(--green); }
 .vb-room-q {
-  font-size: 20px; color: #003300; line-height: 1;
+  font-size: 20px; color: var(--green-dim); line-height: 1;
   animation: vb-q-blink 2s step-end infinite;
 }
-.vb-room:hover:not(.vb-opened) .vb-room-q { color: var(--green-dim); }
+.vb-room:hover:not(.vb-opened) .vb-room-q { color: var(--green); }
 @keyframes vb-q-blink { 0%,100%{opacity:1}55%{opacity:0.15} }
 /* door handle dot */
 .vb-room::after {
@@ -1529,13 +1541,13 @@ body::before {
 }
 .vb-room.vb-opened::after { display: none; }
 .vb-room-result {
-  font-size: 8px; letter-spacing: 1px;
-  color: var(--green-dim); text-align: center; line-height: 1.7;
+  font-size: 10px; letter-spacing: 1px;
+  color: var(--green); text-align: center; line-height: 1.7;
 }
-.vb-survivor-tag { color: var(--amber); display: block; font-size: 8px; }
+.vb-survivor-tag { color: var(--amber); display: block; font-size: 9px; }
 .vb-scav-hint {
-  font-size: 8px; letter-spacing: 1px;
-  color: var(--green-dark); text-align: center;
+  font-size: 10px; letter-spacing: 1px;
+  color: var(--green-dim); text-align: center;
 }
 
 /* ─────────────────────────────────────
@@ -1559,9 +1571,9 @@ body::before {
   transition: all 0.35s;
 }
 .vb-req-check.met { border-color: #cc55ff; color: #cc55ff; box-shadow: 0 0 6px rgba(204,85,255,0.3); }
-.vb-req-label { color: #330055; transition: color 0.35s; }
-.vb-req-row.met .vb-req-label { color: #9933cc; }
-.vb-metal-lbl { font-size: 8px; letter-spacing: 1px; color: #330055; }
+.vb-req-label { color: #7733aa; transition: color 0.35s; }
+.vb-req-row.met .vb-req-label { color: #cc55ff; }
+.vb-metal-lbl { font-size: 10px; letter-spacing: 1px; color: #7733aa; }
 .vb-metal-track {
   height: 9px; background: #0d0016; border: 1px solid #2a0044;
   overflow: hidden;
@@ -1740,8 +1752,13 @@ body::before {
           <span class="vbm-title">POWER GRID</span>
           <span class="vbm-tag" id="vbs-power">OFFLINE</span>
         </div>
+        <div class="vb-cr">
+          <span class="vb-cr-cost">COST: 7 ACTIONS</span>
+          <span class="vb-cr-sep">·</span>
+          <span class="vb-cr-reward">ENABLES WATER &amp; COMMS</span>
+        </div>
         <div class="vbm-body">
-          <div id="vb-power-hint">flip all circuit breakers, then engage the main bus.</div>
+          <div id="vb-power-hint">flip all 6 circuit breakers, then engage the main bus.</div>
           <div id="vb-breaker-grid"><!-- built by JS --></div>
           <button id="vb-engage-btn" disabled onclick="vbEngagePower()">[ ENGAGE MAIN BREAKER ]</button>
         </div>
@@ -1753,6 +1770,11 @@ body::before {
           <span class="vbm-icon">◈</span>
           <span class="vbm-title">WATER RECLAMATION</span>
           <span class="vbm-tag" id="vbs-water">OFFLINE</span>
+        </div>
+        <div class="vb-cr">
+          <span class="vb-cr-cost">COST: 2 OR 5 ACTIONS</span>
+          <span class="vb-cr-sep">·</span>
+          <span class="vb-cr-reward">REWARD: +8 OR +20 WATER</span>
         </div>
         <div class="vbm-body">
           <!-- decorative pipe diagram -->
@@ -1793,6 +1815,11 @@ body::before {
           <span class="vbm-title">SCAVENGE VAULT</span>
           <span class="vbm-tag" id="vbs-scav">6 ROOMS</span>
         </div>
+        <div class="vb-cr">
+          <span class="vb-cr-cost">COST: 2 ACTIONS/ROOM</span>
+          <span class="vb-cr-sep">·</span>
+          <span class="vb-cr-reward">FIND: FOOD · WATER · METAL · WOOD</span>
+        </div>
         <div class="vbm-body">
           <div id="vb-room-grid"><!-- built by JS --></div>
           <div class="vb-scav-hint" id="vb-scav-hint">2 actions per room</div>
@@ -1805,6 +1832,11 @@ body::before {
           <span class="vbm-icon">▣</span>
           <span class="vbm-title">COMMS UNIT</span>
           <span class="vbm-tag" id="vbs-comms">OFFLINE</span>
+        </div>
+        <div class="vb-cr">
+          <span class="vb-cr-cost">NEEDS: PWR + WATER + 8 METAL</span>
+          <span class="vb-cr-sep">·</span>
+          <span class="vb-cr-reward">COMPLETES VAULT BOOT</span>
         </div>
         <div class="vbm-body">
           <div class="vb-reqs">
@@ -2491,12 +2523,12 @@ function confirmCharacter() {
     }
   };
 
-  // Hide char creation screens, go to vault-boot sequence
+  // Hide char creation, run terminal boot narrative first
   document.getElementById('char-create').style.display = 'none';
   document.getElementById('splash').style.display = 'none';
   G.people = [playerChar];
   G.population = 1;
-  showVaultBoot(); // NEW: boot sequence before hex map
+  startGame(); // terminal narrative → checkSystemsProgress → showVaultBoot → hex map
 }
 
 // ── SURVIVOR GENERATION ──
@@ -2635,6 +2667,30 @@ function statBar(val) {
   return filled + empty;
 }
 
+// ── Pronoun helpers ─────────────────────────────────────────────────────────
+// person.pronoun is 'he', 'she' (player) or randomly assigned to NPCs
+function pron(person)     { return (person && person.pronoun) || 'they'; }
+function pronPoss(person) { const p=pron(person); return p==='he'?'his':p==='she'?'her':'their'; }
+function pronObj(person)  { const p=pron(person); return p==='he'?'him':p==='she'?'her':'them'; }
+// Replace {they}/{their}/{them}/{poss}/{obj}/{name} placeholders in narrative text
+function subPron(text, person, firstName) {
+  let t = text;
+  if (firstName) t = t.replace(/\{name\}/g, firstName);
+  if (!person) return t;
+  const sub = (s, rep) => s.replace(new RegExp('\\{'+rep+'\\}','g'), pronPoss(person))
+    .replace(/placeholder/,'');
+  t = t
+    .replace(/\{they\}/g,  pron(person))
+    .replace(/\{They\}/g,  pron(person).charAt(0).toUpperCase()+pron(person).slice(1))
+    .replace(/\{their\}/g, pronPoss(person))
+    .replace(/\{Their\}/g, pronPoss(person).charAt(0).toUpperCase()+pronPoss(person).slice(1))
+    .replace(/\{them\}/g,  pronObj(person))
+    .replace(/\{Them\}/g,  pronObj(person).charAt(0).toUpperCase()+pronObj(person).slice(1))
+    .replace(/\{poss\}/g,  pronPoss(person))
+    .replace(/\{obj\}/g,   pronObj(person));
+  return t;
+}
+
 function generatePerson(forceRole) {
   const first = FIRST_NAMES[Math.floor(Math.random()*FIRST_NAMES.length)];
   const last  = SURNAMES[Math.floor(Math.random()*SURNAMES.length)];
@@ -2647,6 +2703,7 @@ function generatePerson(forceRole) {
     id: `person_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
     name: `${first} ${last}`,
     role, trait,
+    pronoun: Math.random() < 0.5 ? 'he' : 'she',
     arrived: G.turn,
     status: 'vault',
     missionHex: null,
@@ -3123,12 +3180,12 @@ function checkSystemsProgress() {
     setTimeout(() => {
       logGap();
       log('CORE SYSTEMS RESTORED', 'alert');
-      log('power sufficient to boot surface scanner.', 'sys', 400);
+      log('one final step — the vault needs to be secured before surface scan.', 'sys', 400);
       logGap();
       setTimeout(() => {
         if (DEV_SKIP) return;
         setActions([
-          { id:'scanner', label:'[ BOOT SURFACE SCANNER ]', style:'primary amber', action: bootScanner },
+          { id:'scanner', label:'[ ACCESS VAULT SYSTEMS ]', style:'primary amber', action: showVaultBoot },
         ]);
       }, 800);
     }, 800);
@@ -3250,12 +3307,11 @@ function triggerContact() {
     G.people.push(npc);
     G.population = G.people.length;
     const def = ROLE_DEFS[npc.role];
-    const pronoun = ['he','she','they'][Math.floor(Math.random()*3)];
     log(`NAME: ${npc.name}`, 'alert', 0);
     log(`ROLE: ${npc.role} ${def.icon}`, 'sys', 300);
     log(npc.trait, 'story', 700);
     logGap();
-    log(`${pronoun} found the vault by following old infrastructure maps.`, 'story', 1100);
+    log(`${pron(npc).charAt(0).toUpperCase()+pron(npc).slice(1)} found the vault by following old infrastructure maps.`, 'story', 1100);
     log(`VAULT POPULATION: ${G.population}`, 'sys', 1800);
     log('each person consumes power and water each cycle.', 'sys', 2100);
     logGap();
@@ -4445,7 +4501,7 @@ const ARRIVAL_MSGS = {
   WASTE:    ['{name} marks the location and moves on. ash and broken glass.', 'nothing lives here. perhaps nothing ever will again.', 'a rusted sign, unreadable. {name} radios in. the wind is the only sound.'],
   RUIN:     ['collapsed towers. something may still be salvageable.', '{name} finds a sealed container. we\'ll send someone back.', 'graffiti on a wall: WE WERE HERE. dated 14 years ago.'],
   FOREST:   ['trees. real ones. {name} stops for a long moment, just looking.', 'birdsong. {name} radios back and doesn\'t say anything for a while.', 'a small camp, recently abandoned. someone else is out there.'],
-  WATER:    ['a reservoir, largely intact. water tests show it\'s safe. this changes things.', '{name} fills their canteen and sits by the edge. we can hear them breathing.', 'a lake. ducks. actual ducks. {name} laughs — first time we\'ve heard that.'],
+  WATER:    ['a reservoir, largely intact. water tests show it\'s safe. this changes things.', '{name} fills {poss} canteen and sits by the edge. we can hear {obj} breathing.', 'a lake. ducks. actual ducks. {name} laughs — first time we\'ve heard that.'],
   GRASS:    ['wildflowers growing through the concrete. {name} sends us a photo.', 'the land is healing. slowly, but it\'s healing.', 'tall grass, knee-high. {name} says it smells like earth after rain.'],
   MOUNTAIN: ['steep terrain. difficult passage, but {name} finds a route.', 'from the ridge, {name} can see for miles. the description takes twenty minutes.', 'ore deposits visible in the rock face. we\'ll need equipment.'],
   BUNKER:   ['another vault. the door is sealed. {name} tries the emergency code.', 'something below. {name} hears movement. radio goes quiet.', 'a shelter, different design from ours. older. {name} is looking for a way in.'],
@@ -4455,7 +4511,7 @@ function arrivalNarrative(hex, person) {
   const firstName = person ? person.name.split(' ')[0] : 'scout';
   const rawMsgs = ARRIVAL_MSGS[hex.terrain] || ['{name} reports in. all clear.'];
   const raw = rawMsgs[Math.floor(Math.random()*rawMsgs.length)];
-  const msg = raw.replace(/\{name\}/g, firstName);
+  const msg = subPron(raw, person, firstName);
   log(`${firstName} reports in.`, 'sys', 0);
   log(msg, 'story', 300);
 
@@ -4624,7 +4680,9 @@ function showEncounter(enc, hex, person) {
   // Tap anywhere during text reveal to skip straight to choices
   overlay.onclick = () => { if (encounterSkipFn) encounterSkipFn(); };
 
-  revealEncounterLines(enc.text, textEl, () => {
+  const encFirstName = person ? person.name.split(' ')[0] : null;
+  const encText = enc.text.map(l => subPron(l, person, encFirstName));
+  revealEncounterLines(encText, textEl, () => {
     showEncounterChoices(enc.choices, choicesEl, textEl, hex, person);
   });
 }
@@ -4678,7 +4736,9 @@ function showEncounterChoices(choices, choicesEl, textEl, hex, person) {
     btn.addEventListener('click', () => {
       choicesEl.querySelectorAll('.enc-btn').forEach(b => b.disabled = true);
       if (choice.beats && choice.beats.length) {
-        revealEncounterLines(choice.beats, textEl, () => {
+        const chFirstName = person ? person.name.split(' ')[0] : null;
+        const beats = choice.beats.map(l => subPron(l, person, chFirstName));
+        revealEncounterLines(beats, textEl, () => {
           applyEncounterOutcome(choice.outcome, textEl, hex, person);
         });
       } else {
@@ -4717,13 +4777,15 @@ function applyEncounterOutcome(outcome, textEl, hex, person) {
     setTimeout(() => {
       log(`[ ${np.name.toUpperCase()} ]`, 'alert', 0);
       log(`${np.role}. ${np.trait}`, 'story', 300);
+      log(`${pron(np).charAt(0).toUpperCase()+pron(np).slice(1)} joins the vault.`, 'story', 600);
     }, 1800);
   }
 
   updateHUD(); drawMap();
 
   if (outcome.log && person) {
-    setTimeout(() => log(`◈ ${person.name.split(' ')[0]}: ${outcome.log}`, 'story'), 1600);
+    const logText = subPron(outcome.log, person, person.name.split(' ')[0]);
+    setTimeout(() => log(`◈ ${person.name.split(' ')[0]}: ${logText}`, 'story'), 1600);
   }
 
   if (parts.length > 0) {
@@ -4880,7 +4942,7 @@ function openHexInfo(h) {
           const targetFirst = target.name.split(' ')[0];
           target.wounds = Math.max(0, (target.wounds||0) - 1);
           personHere.actionsLeft = 0;
-          log(`⊕ ${docFirst} patches ${isSelf ? 'their own wounds' : targetFirst + "'s wounds"}.`, 'story');
+          log(`⊕ ${docFirst} patches ${isSelf ? pronPoss(personHere)+' own wounds' : targetFirst + "'s wounds"}.`, 'story');
           updateHUD();
           openHexInfo(h);
         });
@@ -4994,7 +5056,7 @@ let pendingBuildType = null;
 
 function updateBuildBtn() {
   const btn = document.getElementById('build-btn');
-  if (btn) btn.style.display = (G.phase >= 3 && G.mapUnlocked) ? 'block' : 'none';
+  if (btn) btn.style.display = G.mapUnlocked ? 'block' : 'none';
 }
 
 function openBuildPanel() {
@@ -5138,6 +5200,7 @@ function performHexAction(person, hex, actKey) {
       logGap();
       log(`${npc.name} — ${npc.role} ${def.icon}`, 'alert', 600);
       log(npc.trait, 'story', 900);
+      log(`${pron(npc).charAt(0).toUpperCase()+pron(npc).slice(1)} joins the vault.`, 'story', 1200);
       logGap();
     } else {
       log(`${firstName} found no one. but signs someone passed through recently.`, 'story', 300);
@@ -5729,7 +5792,7 @@ function showVaultBoot() {
   vbBreakersOn = 0;
   vbState = { powerDone:false, waterDone:false, commsDone:false,
               food:0, water:0, metal:0, wood:0, survivor:false };
-  G.phase = 0; G.turn = 1; // sane save state during boot
+  // G.phase stays as-is (set by terminal phases); completeVaultBoot sets phase=2 + turn=1
 
   const vb = document.getElementById('vault-boot');
   vb.style.display = 'flex'; vb.style.opacity = '1';
