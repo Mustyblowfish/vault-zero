@@ -1234,6 +1234,390 @@ body::before {
   margin-bottom: 8px;
 }
 #quick-picker .qp-btns { display: flex; flex-direction: column; gap: 5px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   VAULT BOOT SEQUENCE  —  pre-map interactive setup screen
+   ═══════════════════════════════════════════════════════════════ */
+
+#vault-boot {
+  position: fixed; inset: 0;
+  background: #010601;
+  z-index: 500;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  font-family: 'Share Tech Mono', monospace;
+}
+
+/* ── O2 header ── */
+#vb-header {
+  flex-shrink: 0;
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid var(--green-dark);
+  background: rgba(0,10,0,0.85);
+}
+#vb-title {
+  font-size: 10px; letter-spacing: 3px;
+  color: var(--amber); margin-bottom: 7px;
+}
+#vb-o2-row {
+  display: flex; align-items: center; gap: 10px;
+}
+#vb-o2-label {
+  font-size: 10px; letter-spacing: 2px;
+  color: var(--green-dim); white-space: nowrap;
+}
+#vb-o2-track {
+  flex: 1; height: 13px;
+  background: #001800; border: 1px solid var(--green-dark);
+  overflow: hidden; position: relative;
+}
+#vb-o2-fill {
+  height: 100%; background: var(--green);
+  transition: width 0.4s ease, background 0.5s;
+  width: 100%;
+}
+#vb-o2-fill::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    90deg, transparent 0, transparent 8px,
+    rgba(0,0,0,0.15) 8px, rgba(0,0,0,0.15) 9px
+  );
+}
+#vb-o2-num {
+  font-size: 14px; letter-spacing: 1px;
+  color: var(--green); min-width: 28px; text-align: right;
+}
+#vb-status-msg {
+  font-size: 9px; letter-spacing: 2px;
+  color: var(--green-dim); margin-top: 5px; min-height: 14px;
+}
+
+/* ── Resource strip ── */
+#vb-resources {
+  flex-shrink: 0;
+  display: flex; gap: 0; align-items: stretch;
+  border-bottom: 1px solid var(--green-dark);
+  font-size: 10px; letter-spacing: 2px;
+}
+.vb-res-cell {
+  flex: 1; padding: 5px 10px;
+  border-right: 1px solid var(--green-dark);
+  color: var(--green-dim);
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+}
+.vb-res-cell:last-child { border-right: none; }
+.vb-res-cell .vb-rl { font-size: 7px; letter-spacing: 2px; color: #003300; }
+.vb-res-cell .vb-rv { font-size: 13px; color: var(--green); }
+
+/* ── 2×2 task grid ── */
+#vb-tasks {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  background: var(--green-dark);
+  overflow: hidden;
+}
+
+/* ── Module base ── */
+.vb-module {
+  background: #010901;
+  display: flex; flex-direction: column;
+  overflow: hidden; position: relative;
+}
+.vb-module-power { --mc: #ffb000; }
+.vb-module-water { --mc: #00ccff; }
+.vb-module-scav  { --mc: #00dd55; }
+.vb-module-comms { --mc: #cc55ff; }
+
+/* Left accent stripe */
+.vb-module::before {
+  content: '';
+  position: absolute; top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--mc, var(--green-dark));
+  opacity: 0.7;
+}
+.vb-module.vb-done::before { opacity: 1; }
+.vb-module.vb-done { background: #010d03; }
+
+/* Module header */
+.vbm-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px 6px 14px;
+  border-bottom: 1px solid rgba(0,255,65,0.05);
+  flex-shrink: 0;
+}
+.vbm-icon { font-size: 15px; color: var(--mc, var(--green)); line-height: 1; }
+.vbm-title {
+  font-size: 8px; letter-spacing: 3px;
+  color: var(--green-dim); flex: 1;
+  text-transform: uppercase;
+}
+.vbm-tag {
+  font-size: 8px; letter-spacing: 2px;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-color: rgba(0,80,0,0.5);
+  color: #004400;
+  transition: all 0.4s;
+}
+.vbm-tag.online {
+  border-color: var(--mc, var(--green));
+  color: var(--mc, var(--green));
+  box-shadow: 0 0 8px rgba(255,255,255,0.05);
+}
+
+/* Module body */
+.vbm-body {
+  flex: 1; padding: 10px 12px 10px 14px;
+  display: flex; flex-direction: column;
+  overflow-y: auto; gap: 6px;
+}
+
+/* ─────────────────────────────────────
+   POWER MODULE — breaker panel
+   ───────────────────────────────────── */
+#vb-power-hint {
+  font-size: 8px; letter-spacing: 1px;
+  color: #443300; line-height: 1.5;
+}
+#vb-breaker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.vb-breaker {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 3px; cursor: pointer; padding: 4px 2px;
+  border-radius: 2px; transition: background 0.15s;
+}
+.vb-breaker:hover:not(.brk-on) { background: rgba(255,176,0,0.04); }
+.vb-breaker-label {
+  font-size: 7px; letter-spacing: 1px; color: #443300;
+  transition: color 0.2s;
+}
+.vb-breaker.brk-on .vb-breaker-label { color: var(--amber); }
+.vb-breaker-slot {
+  width: 26px; height: 46px;
+  background: #080400; border: 1px solid #331800;
+  border-radius: 3px; position: relative; overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.vb-breaker.brk-on .vb-breaker-slot {
+  border-color: var(--amber);
+  box-shadow: 0 0 10px rgba(255,176,0,0.2);
+}
+.vb-breaker-tog {
+  position: absolute; left: 4px; right: 4px; height: 16px;
+  background: #3a1a00; border-radius: 2px; top: 4px;
+  transition: top 0.2s ease, background 0.2s;
+}
+.vb-breaker.brk-on .vb-breaker-tog {
+  top: calc(100% - 20px);
+  background: var(--amber);
+  box-shadow: 0 -3px 8px rgba(255,176,0,0.4);
+}
+.vb-breaker-state {
+  font-size: 7px; letter-spacing: 1px;
+  color: #331800; transition: color 0.2s;
+}
+.vb-breaker.brk-on .vb-breaker-state { color: var(--amber); }
+
+#vb-engage-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: 3px; padding: 8px 0;
+  width: 100%; margin-top: auto;
+  background: rgba(255,176,0,0.05); border: 1px solid #331800;
+  color: #442200; cursor: not-allowed;
+  transition: all 0.25s;
+}
+#vb-engage-btn.vb-ready {
+  border-color: var(--amber); color: var(--amber); cursor: pointer;
+  animation: vb-amber-glow 1.3s ease-in-out infinite;
+}
+@keyframes vb-amber-glow {
+  0%,100% { box-shadow: 0 0 0px rgba(255,176,0,0); }
+  50%      { box-shadow: 0 0 16px rgba(255,176,0,0.35); }
+}
+
+/* ─────────────────────────────────────
+   WATER MODULE — pipe diagram + choices
+   ───────────────────────────────────── */
+.vb-pipe-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; padding: 6px 0 4px;
+}
+.vb-pipe-node { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.vb-pn-label { font-size: 7px; letter-spacing: 1px; color: #002233; transition: color 0.4s; }
+.vb-pn-label.flowing { color: #006688; }
+.vb-valve {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 2px solid #002233; background: #000d14;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; color: #002233;
+  transition: all 0.35s; cursor: default;
+}
+.vb-valve.open {
+  border-color: #00ccff; color: #00ccff;
+  background: rgba(0,204,255,0.1);
+  box-shadow: 0 0 12px rgba(0,204,255,0.3);
+  transform: rotate(45deg);
+}
+.vb-pipe-seg {
+  width: 18px; height: 3px;
+  background: #002233; margin: 0 -1px;
+  transition: background 0.4s, box-shadow 0.4s;
+  flex-shrink: 0;
+}
+.vb-pipe-seg.flowing {
+  background: #00ccff;
+  box-shadow: 0 0 6px rgba(0,204,255,0.4);
+}
+.vb-water-choices { display: flex; flex-direction: column; gap: 6px; flex: 1; justify-content: center; }
+.vb-wchoice {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: 2px; padding: 9px 12px;
+  background: rgba(0,40,60,0.4); border: 1px solid #003344;
+  color: #005566; cursor: pointer; text-align: left;
+  transition: all 0.2s; line-height: 1;
+}
+.vb-wchoice:hover { background: rgba(0,80,120,0.25); border-color: #00ccff; color: #00ccff; }
+.vb-wchoice .vb-wcost {
+  display: block; font-size: 8px; color: #003344; margin-top: 4px; letter-spacing: 1px;
+}
+.vb-wchoice:hover .vb-wcost { color: #0088aa; }
+
+/* ─────────────────────────────────────
+   SCAVENGE MODULE — room door cards
+   ───────────────────────────────────── */
+#vb-room-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 5px; flex: 1;
+}
+.vb-room {
+  background: #010b02; border: 1px solid #002200;
+  cursor: pointer; position: relative;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 5px 4px; min-height: 68px; overflow: hidden;
+  transition: border-color 0.2s, background 0.2s;
+}
+.vb-room:hover:not(.vb-opened) {
+  border-color: var(--green-dim); background: #021203;
+}
+.vb-room.vb-opened { cursor: default; border-color: #001800; background: #020e03; }
+.vb-room-name {
+  font-size: 7px; letter-spacing: 1px; color: #003300;
+  text-align: center; line-height: 1.4; margin-bottom: 3px;
+}
+.vb-room:hover:not(.vb-opened) .vb-room-name { color: var(--green-dim); }
+.vb-room-q {
+  font-size: 20px; color: #003300; line-height: 1;
+  animation: vb-q-blink 2s step-end infinite;
+}
+.vb-room:hover:not(.vb-opened) .vb-room-q { color: var(--green-dim); }
+@keyframes vb-q-blink { 0%,100%{opacity:1}55%{opacity:0.15} }
+/* door handle dot */
+.vb-room::after {
+  content: '●'; position: absolute; right: 5px; top: 50%;
+  transform: translateY(-50%); font-size: 5px; color: #002200;
+}
+.vb-room.vb-opened::after { display: none; }
+.vb-room-result {
+  font-size: 8px; letter-spacing: 1px;
+  color: var(--green-dim); text-align: center; line-height: 1.7;
+}
+.vb-survivor-tag { color: var(--amber); display: block; font-size: 8px; }
+.vb-scav-hint {
+  font-size: 8px; letter-spacing: 1px;
+  color: var(--green-dark); text-align: center;
+}
+
+/* ─────────────────────────────────────
+   COMMS MODULE — PCB assembly
+   ───────────────────────────────────── */
+#vbm-comms {
+  background-image:
+    repeating-linear-gradient(0deg,
+      rgba(80,0,120,0.035) 0px, rgba(80,0,120,0.035) 1px,
+      transparent 1px, transparent 22px),
+    repeating-linear-gradient(90deg,
+      rgba(80,0,120,0.035) 0px, rgba(80,0,120,0.035) 1px,
+      transparent 1px, transparent 22px);
+}
+.vb-reqs { display: flex; flex-direction: column; gap: 5px; }
+.vb-req-row { display: flex; align-items: center; gap: 8px; font-size: 9px; letter-spacing: 1px; }
+.vb-req-check {
+  width: 15px; height: 15px; border: 1px solid #2a0044;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #330055; flex-shrink: 0;
+  transition: all 0.35s;
+}
+.vb-req-check.met { border-color: #cc55ff; color: #cc55ff; box-shadow: 0 0 6px rgba(204,85,255,0.3); }
+.vb-req-label { color: #330055; transition: color 0.35s; }
+.vb-req-row.met .vb-req-label { color: #9933cc; }
+.vb-metal-lbl { font-size: 8px; letter-spacing: 1px; color: #330055; }
+.vb-metal-track {
+  height: 9px; background: #0d0016; border: 1px solid #2a0044;
+  overflow: hidden;
+}
+#vb-metal-fill { height: 100%; background: #cc55ff; transition: width 0.4s ease; width: 0; }
+#vb-comms-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: 3px; padding: 9px 0;
+  width: 100%; margin-top: auto;
+  background: rgba(80,0,120,0.08); border: 1px solid #2a0044;
+  color: #330055; cursor: not-allowed; transition: all 0.3s;
+}
+#vb-comms-btn.vb-ready {
+  border-color: #cc55ff; color: #cc55ff; cursor: pointer;
+  animation: vb-violet-glow 1.3s ease-in-out infinite;
+}
+@keyframes vb-violet-glow {
+  0%,100% { box-shadow: 0 0 0 rgba(204,85,255,0); }
+  50%      { box-shadow: 0 0 18px rgba(204,85,255,0.4); }
+}
+
+/* ── outcome flash ── */
+.vb-outcome {
+  font-size: 9px; letter-spacing: 2px;
+  color: var(--green); text-align: center; padding: 4px 0;
+  animation: vb-fadein 0.3s ease;
+}
+@keyframes vb-fadein { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+
+/* ── game-over overlay (inside #vault-boot) ── */
+#vb-gameover {
+  display: none; position: absolute; inset: 0;
+  background: rgba(1,4,1,0.95); z-index: 10;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px;
+}
+#vb-gameover.vb-go-show { display: flex; }
+#vb-gameover h2 { font-size: 20px; letter-spacing: 4px; color: var(--red); }
+#vb-gameover p {
+  font-size: 10px; letter-spacing: 2px; color: var(--green-dim);
+  text-align: center; max-width: 260px; line-height: 1.8;
+}
+#vb-gameover .vb-go-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; letter-spacing: 3px; padding: 10px 24px;
+  background: transparent; border: 1px solid var(--red);
+  color: var(--red); cursor: pointer;
+}
+
+/* ── mobile ── */
+@media (max-width: 700px) {
+  #vb-tasks {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    overflow-y: auto;
+  }
+  .vb-module { min-height: 210px; }
+}
 </style>
 </head>
 <body>
@@ -1318,6 +1702,139 @@ body::before {
       </div>
     </div>
   </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       VAULT BOOT SEQUENCE  —  shown after char-create
+       ═══════════════════════════════════════════════════════ -->
+  <div id="vault-boot" style="display:none">
+
+    <!-- O2 header bar -->
+    <div id="vb-header">
+      <div id="vb-title">⚠ VAULT ZERO — EMERGENCY BOOT REQUIRED</div>
+      <div id="vb-o2-row">
+        <span id="vb-o2-label">OXYGEN:</span>
+        <div id="vb-o2-track"><div id="vb-o2-fill"></div></div>
+        <span id="vb-o2-num">24</span>
+        <span style="font-size:8px;color:var(--green-dark);letter-spacing:1px;"> ACT</span>
+      </div>
+      <div id="vb-status-msg">CO₂ scrubbers failing — bring systems online before oxygen depletes.</div>
+    </div>
+
+    <!-- Resource strip -->
+    <div id="vb-resources">
+      <div class="vb-res-cell"><span class="vb-rl">FOOD</span><span class="vb-rv" id="vbr-food">0</span></div>
+      <div class="vb-res-cell"><span class="vb-rl">H₂O</span><span class="vb-rv" id="vbr-water">0</span></div>
+      <div class="vb-res-cell"><span class="vb-rl">METAL</span><span class="vb-rv" id="vbr-metal">0</span></div>
+      <div class="vb-res-cell"><span class="vb-rl">WOOD</span><span class="vb-rv" id="vbr-wood">0</span></div>
+    </div>
+
+    <!-- 2×2 task modules -->
+    <div id="vb-tasks">
+
+      <!-- ── POWER MODULE ── -->
+      <div class="vb-module vb-module-power" id="vbm-power">
+        <div class="vbm-hdr">
+          <span class="vbm-icon">⚡</span>
+          <span class="vbm-title">POWER GRID</span>
+          <span class="vbm-tag" id="vbs-power">OFFLINE</span>
+        </div>
+        <div class="vbm-body">
+          <div id="vb-power-hint">flip all circuit breakers, then engage the main bus.</div>
+          <div id="vb-breaker-grid"><!-- built by JS --></div>
+          <button id="vb-engage-btn" disabled onclick="vbEngagePower()">[ ENGAGE MAIN BREAKER ]</button>
+        </div>
+      </div>
+
+      <!-- ── WATER MODULE ── -->
+      <div class="vb-module vb-module-water" id="vbm-water">
+        <div class="vbm-hdr">
+          <span class="vbm-icon">◈</span>
+          <span class="vbm-title">WATER RECLAMATION</span>
+          <span class="vbm-tag" id="vbs-water">OFFLINE</span>
+        </div>
+        <div class="vbm-body">
+          <!-- decorative pipe diagram -->
+          <div class="vb-pipe-row">
+            <div class="vb-pipe-node">
+              <div class="vb-valve" id="vbv-0">⊕</div>
+              <div class="vb-pn-label" id="vbpl-0">INTAKE</div>
+            </div>
+            <div class="vb-pipe-seg" id="vbps-0"></div>
+            <div class="vb-pipe-node">
+              <div class="vb-valve" id="vbv-1">⊕</div>
+              <div class="vb-pn-label" id="vbpl-1">FILTER</div>
+            </div>
+            <div class="vb-pipe-seg" id="vbps-1"></div>
+            <div class="vb-pipe-node">
+              <div class="vb-valve" id="vbv-2">⊕</div>
+              <div class="vb-pn-label" id="vbpl-2">TANK</div>
+            </div>
+          </div>
+          <!-- choice buttons -->
+          <div class="vb-water-choices" id="vb-water-choices">
+            <button class="vb-wchoice" onclick="vbDoWater('quick')">
+              QUICK PATCH
+              <span class="vb-wcost" id="vb-wc-quick">2 ACTIONS · +8 WATER</span>
+            </button>
+            <button class="vb-wchoice" onclick="vbDoWater('full')">
+              FULL REPAIR
+              <span class="vb-wcost" id="vb-wc-full">5 ACTIONS · +20 WATER</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SCAVENGE MODULE ── -->
+      <div class="vb-module vb-module-scav" id="vbm-scav">
+        <div class="vbm-hdr">
+          <span class="vbm-icon">⊞</span>
+          <span class="vbm-title">SCAVENGE VAULT</span>
+          <span class="vbm-tag" id="vbs-scav">6 ROOMS</span>
+        </div>
+        <div class="vbm-body">
+          <div id="vb-room-grid"><!-- built by JS --></div>
+          <div class="vb-scav-hint" id="vb-scav-hint">2 actions per room</div>
+        </div>
+      </div>
+
+      <!-- ── COMMS MODULE ── -->
+      <div class="vb-module vb-module-comms" id="vbm-comms">
+        <div class="vbm-hdr">
+          <span class="vbm-icon">▣</span>
+          <span class="vbm-title">COMMS UNIT</span>
+          <span class="vbm-tag" id="vbs-comms">OFFLINE</span>
+        </div>
+        <div class="vbm-body">
+          <div class="vb-reqs">
+            <div class="vb-req-row" id="vbr-pwr">
+              <div class="vb-req-check" id="vbrc-pwr">✗</div>
+              <span class="vb-req-label">POWER GRID ONLINE</span>
+            </div>
+            <div class="vb-req-row" id="vbr-wat">
+              <div class="vb-req-check" id="vbrc-wat">✗</div>
+              <span class="vb-req-label">WATER COOLANT ONLINE</span>
+            </div>
+            <div class="vb-req-row" id="vbr-met">
+              <div class="vb-req-check" id="vbrc-met">✗</div>
+              <span class="vb-req-label">METAL CHASSIS (8 UNITS)</span>
+            </div>
+          </div>
+          <div class="vb-metal-lbl" id="vb-metal-lbl">METAL: 0 / 8</div>
+          <div class="vb-metal-track"><div id="vb-metal-fill"></div></div>
+          <button id="vb-comms-btn" disabled onclick="vbDoComms()">[ ASSEMBLE UNIT ]</button>
+        </div>
+      </div>
+
+    </div><!-- #vb-tasks -->
+
+    <!-- game-over overlay (inside vault-boot) -->
+    <div id="vb-gameover">
+      <h2>SYSTEMS FAILURE</h2>
+      <p>oxygen levels critical.<br>CO₂ scrubbers offline.<br>the vault goes dark.</p>
+      <button class="vb-go-btn" onclick="vbRestart()">[ TRY AGAIN ]</button>
+    </div>
+
+  </div><!-- #vault-boot -->
 
   <!-- MENU OVERLAY -->
   <div id="menu-overlay" style="display:none">
@@ -1972,12 +2489,12 @@ function confirmCharacter() {
     }
   };
 
-  // Hide char creation, start game with player character
+  // Hide char creation screens, go to vault-boot sequence
   document.getElementById('char-create').style.display = 'none';
   document.getElementById('splash').style.display = 'none';
   G.people = [playerChar];
   G.population = 1;
-  startGame();
+  showVaultBoot(); // NEW: boot sequence before hex map
 }
 
 // ── SURVIVOR GENERATION ──
@@ -5140,6 +5657,7 @@ function devSkipToMap() {
   queueDrainCallbacks.length = 0;
   document.getElementById('char-create').style.display = 'none';
   document.getElementById('splash').style.display = 'none';
+  document.getElementById('vault-boot').style.display = 'none';
   G.phase = 3; G.power = 80; G.food = 8; G.water = 15; G.metals = 0; G.wood = 0;
   G.population = 1; G.turn = 1; G.scanRange = 1;
   G.enemyUnits = []; G.nextEnemyId = 1;
@@ -5176,6 +5694,7 @@ function resumeFromSave() {
   updateHUD();
   document.getElementById('splash').style.display = 'none';
   document.getElementById('char-create').style.display = 'none';
+  document.getElementById('vault-boot').style.display = 'none';
   log('── SESSION RESTORED ──', 'header-line');
   log(`day ${G.daysPassed} | power ${G.power}% | population: ${G.population || '—'}`, 'sys', 150);
   const phases = ['—','RESTORING SYSTEMS','SCANNING SURFACE','CONTACT MADE','EXPANSION'];
@@ -5184,6 +5703,449 @@ function resumeFromSave() {
   logGap();
   afterLog(() => restoreButtons());
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   VAULT BOOT SEQUENCE  —  interactive pre-map setup
+   ══════════════════════════════════════════════════════════════════ */
+
+const VB_O2_MAX = 24;
+const VB_METAL_NEEDED = 8;
+
+// Room definitions — id, display name, icon, yields, survivor flag
+const VB_ROOMS = [
+  { id:'barracks', label:'BARRACKS',    icon:'⊓', food:3, metal:1, water:0, wood:0, survivor:false },
+  { id:'storage',  label:'STORAGE',     icon:'▦', food:0, metal:2, water:0, wood:1, survivor:false },
+  { id:'medical',  label:'MEDICAL BAY', icon:'✚', food:2, metal:0, water:4, wood:0, survivor:false },
+  { id:'mess',     label:'MESS HALL',   icon:'▽', food:5, metal:0, water:2, wood:0, survivor:false },
+  { id:'armory',   label:'ARMORY',      icon:'⚔', food:0, metal:4, water:0, wood:0, survivor:false },
+  { id:'maint',    label:'MAINTENANCE', icon:'⚙', food:0, metal:3, water:0, wood:0, survivor:true  },
+];
+
+let vbO2 = VB_O2_MAX;
+let vbBreakersOn = 0;
+const VB_BREAKER_COUNT = 6;
+const VB_BREAKER_LABELS = ['HVAC','LIFT','LIGHTS','PUMPS','FORGE','AUX'];
+let vbState = {
+  powerDone:false, waterDone:false, commsDone:false,
+  food:0, water:0, metal:0, wood:0, survivor:false,
+};
+
+// ── Entry point ────────────────────────────────────────────────
+function showVaultBoot() {
+  // Reset all state
+  vbO2 = VB_O2_MAX;
+  vbBreakersOn = 0;
+  vbState = { powerDone:false, waterDone:false, commsDone:false,
+              food:0, water:0, metal:0, wood:0, survivor:false };
+  G.phase = 0; G.turn = 1; // sane save state during boot
+
+  const vb = document.getElementById('vault-boot');
+  vb.style.display = 'flex'; vb.style.opacity = '1';
+
+  // Build dynamic sections
+  vbBuildBreakers();
+  vbBuildRooms();
+
+  // Apply role-based hints
+  vbApplyRoleHints();
+
+  // Reset all module tags
+  ['power','water','comms'].forEach(k => {
+    const t = document.getElementById(`vbs-${k}`);
+    if (t) { t.textContent = 'OFFLINE'; t.className = 'vbm-tag'; }
+  });
+  document.getElementById('vbs-scav').textContent = '6 ROOMS';
+  document.getElementById('vbs-scav').className = 'vbm-tag';
+  ['vbm-power','vbm-water','vbm-scav','vbm-comms'].forEach(id => {
+    document.getElementById(id)?.classList.remove('vb-done');
+  });
+
+  // Reset pipe diagram
+  [0,1,2].forEach(i => {
+    document.getElementById(`vbv-${i}`)?.classList.remove('open');
+    document.getElementById(`vbps-${i}`)?.classList.remove('flowing');
+    const lbl = document.getElementById(`vbpl-${i}`);
+    if (lbl) lbl.classList.remove('flowing');
+  });
+
+  // Reset engage button
+  const eng = document.getElementById('vb-engage-btn');
+  eng.disabled = true; eng.classList.remove('vb-ready');
+  eng.textContent = '[ ENGAGE MAIN BREAKER ]';
+  eng.style.cssText = '';
+
+  // Reset water choices
+  document.getElementById('vb-water-choices').innerHTML = `
+    <button class="vb-wchoice" onclick="vbDoWater('quick')">
+      QUICK PATCH<span class="vb-wcost" id="vb-wc-quick">...</span>
+    </button>
+    <button class="vb-wchoice" onclick="vbDoWater('full')">
+      FULL REPAIR<span class="vb-wcost" id="vb-wc-full">...</span>
+    </button>`;
+
+  // Reset comms panel
+  const cb = document.getElementById('vb-comms-btn');
+  cb.disabled = true; cb.classList.remove('vb-ready');
+  cb.textContent = '[ ASSEMBLE UNIT ]'; cb.style.cssText = '';
+  ['vbrc-pwr','vbrc-wat','vbrc-met'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = '✗'; el.classList.remove('met'); }
+  });
+  ['vbr-pwr','vbr-wat','vbr-met'].forEach(id => {
+    document.getElementById(id)?.classList.remove('met');
+  });
+
+  // Reset game-over
+  document.getElementById('vb-gameover').classList.remove('vb-go-show');
+
+  vbUpdateO2();
+  vbUpdateResources();
+  vbUpdateCommsPanel();
+  vbApplyRoleHints(); // run again after hints exist in DOM
+}
+
+// ── Role hints ─────────────────────────────────────────────────
+function vbApplyRoleHints() {
+  const player = G.people.find(p => p.isPlayer);
+  if (!player) return;
+  const r = player.role;
+  const quickCost = r === 'doctor' ? 1 : 2;
+  const fullCost  = r === 'doctor' ? 4 : 5;
+  const roomCost  = r === 'scout'  ? 1 : 2;
+  const qc = document.getElementById('vb-wc-quick');
+  const fc = document.getElementById('vb-wc-full');
+  const sh = document.getElementById('vb-scav-hint');
+  if (qc) qc.textContent = `${quickCost} ACTION${quickCost>1?'S':''} · +8 WATER`;
+  if (fc) fc.textContent = `${fullCost} ACTIONS · +20 WATER`;
+  if (sh) {
+    const bonuses = {
+      scout:'SCOUT: 1 action per room',
+      farmer:'FARMER: +2 food per room',
+      soldier:'SOLDIER: bonus metal in armory',
+      doctor:'DOCTOR: reduced water cost',
+    };
+    sh.textContent = bonuses[r] || `${roomCost} actions per room`;
+  }
+}
+
+// ── O2 system ──────────────────────────────────────────────────
+function vbUpdateO2() {
+  const pct = (vbO2 / VB_O2_MAX) * 100;
+  const fill = document.getElementById('vb-o2-fill');
+  const num  = document.getElementById('vb-o2-num');
+  if (fill) {
+    fill.style.width = pct + '%';
+    fill.style.background = pct > 50 ? 'var(--green)' : pct > 25 ? 'var(--amber)' : 'var(--red)';
+  }
+  if (num) num.textContent = vbO2;
+}
+
+function vbSetStatus(msg) {
+  const el = document.getElementById('vb-status-msg');
+  if (el) el.textContent = msg;
+}
+
+// Returns true if action proceeds; fires game-over if O2 runs out
+function vbConsume(n) {
+  if (vbO2 <= 0) return false;
+  if (vbO2 < n)  return false;  // not enough O2 to pay
+  vbO2 -= n;
+  vbUpdateO2();
+  if (vbO2 <= 0) {
+    vbSetStatus('oxygen critical — no actions remaining.');
+    setTimeout(() => { if (!vbState.commsDone) vbGameOver(); }, 700);
+  } else {
+    vbSetStatus(`${vbO2} action${vbO2===1?'':'s'} remaining.`);
+  }
+  return true;
+}
+
+// ── Resources ──────────────────────────────────────────────────
+function vbUpdateResources() {
+  document.getElementById('vbr-food').textContent  = vbState.food;
+  document.getElementById('vbr-water').textContent = vbState.water;
+  document.getElementById('vbr-metal').textContent = vbState.metal;
+  document.getElementById('vbr-wood').textContent  = vbState.wood;
+}
+
+// ── POWER ──────────────────────────────────────────────────────
+function vbBuildBreakers() {
+  const grid = document.getElementById('vb-breaker-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  for (let i = 0; i < VB_BREAKER_COUNT; i++) {
+    const div = document.createElement('div');
+    div.className = 'vb-breaker';
+    div.id = `vb-brk-${i}`;
+    div.innerHTML = `
+      <div class="vb-breaker-slot"><div class="vb-breaker-tog"></div></div>
+      <div class="vb-breaker-state">OFF</div>
+      <div class="vb-breaker-label">${VB_BREAKER_LABELS[i]}</div>`;
+    div.addEventListener('click', () => vbToggleBreaker(i, div));
+    grid.appendChild(div);
+  }
+  vbBreakersOn = 0;
+}
+
+function vbToggleBreaker(i, el) {
+  if (vbState.powerDone) return;
+  if (el.classList.contains('brk-on')) {
+    // Toggle OFF — no O2 cost
+    el.classList.remove('brk-on');
+    el.querySelector('.vb-breaker-state').textContent = 'OFF';
+    vbBreakersOn--;
+    const btn = document.getElementById('vb-engage-btn');
+    btn.disabled = true; btn.classList.remove('vb-ready');
+    return;
+  }
+  // Toggle ON — costs 1 O2
+  if (!vbConsume(1)) return;
+  el.classList.add('brk-on');
+  el.querySelector('.vb-breaker-state').textContent = 'ON';
+  vbBreakersOn++;
+  if (vbBreakersOn >= VB_BREAKER_COUNT) {
+    const btn = document.getElementById('vb-engage-btn');
+    btn.disabled = false; btn.classList.add('vb-ready');
+    vbSetStatus('all circuits active — engage the main bus.');
+  }
+}
+
+function vbEngagePower() {
+  if (vbState.powerDone || vbBreakersOn < VB_BREAKER_COUNT) return;
+  if (!vbConsume(1)) return;
+  vbState.powerDone = true;
+
+  const btn = document.getElementById('vb-engage-btn');
+  btn.disabled = true; btn.classList.remove('vb-ready');
+  btn.textContent = '⚡ POWER: ONLINE';
+  btn.style.cssText = 'border-color:var(--amber);color:var(--amber);cursor:default;';
+
+  const tag = document.getElementById('vbs-power');
+  tag.textContent = 'ONLINE'; tag.classList.add('online');
+  document.getElementById('vbm-power').classList.add('vb-done');
+  vbSetStatus('power grid online. CO₂ scrubbers partially restored.');
+  vbUpdateCommsPanel();
+}
+
+// ── WATER ──────────────────────────────────────────────────────
+function vbDoWater(type) {
+  if (vbState.waterDone) return;
+  const player = G.people.find(p => p.isPlayer);
+  const isDoc  = player?.role === 'doctor';
+  const cost   = type === 'quick' ? (isDoc ? 1 : 2) : (isDoc ? 4 : 5);
+  const amount = type === 'quick' ? 8 : 20;
+  if (!vbConsume(cost)) return;
+  vbState.waterDone = true;
+  vbState.water += amount;
+  vbUpdateResources();
+
+  // Animate valves and pipes opening one by one
+  let vi = 0;
+  const iv = setInterval(() => {
+    if (vi <= 2) {
+      document.getElementById(`vbv-${vi}`)?.classList.add('open');
+      if (vi > 0) document.getElementById(`vbps-${vi-1}`)?.classList.add('flowing');
+      document.getElementById(`vbpl-${vi}`)?.classList.add('flowing');
+      vi++;
+    } else {
+      document.getElementById(`vbps-1`)?.classList.add('flowing');
+      clearInterval(iv);
+      // Replace choice buttons with outcome
+      const cDiv = document.getElementById('vb-water-choices');
+      if (cDiv) cDiv.innerHTML = `<div class="vb-outcome">+${amount} WATER SECURED<br><span style="font-size:8px;color:var(--green-dark)">${type==='quick'?'quick patch applied':'full repair complete'}</span></div>`;
+      const tag = document.getElementById('vbs-water');
+      tag.textContent = 'ONLINE'; tag.classList.add('online');
+      document.getElementById('vbm-water').classList.add('vb-done');
+      vbSetStatus(`water reclamation online. ${amount} units secured.`);
+      vbUpdateCommsPanel();
+    }
+  }, 280);
+}
+
+// ── SCAVENGE ───────────────────────────────────────────────────
+function vbBuildRooms() {
+  const grid = document.getElementById('vb-room-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  VB_ROOMS.forEach(room => {
+    const div = document.createElement('div');
+    div.className = 'vb-room';
+    div.innerHTML = `<div class="vb-room-name">${room.icon}<br>${room.label}</div><div class="vb-room-q">?</div>`;
+    div.addEventListener('click', () => vbSearchRoom(room, div));
+    grid.appendChild(div);
+  });
+}
+
+function vbSearchRoom(room, el) {
+  if (el.classList.contains('vb-opened')) return;
+  const player   = G.people.find(p => p.isPlayer);
+  const isScout  = player?.role === 'scout';
+  const isFarmer = player?.role === 'farmer';
+  const isSoldier= player?.role === 'soldier';
+  const isDoctor = player?.role === 'doctor';
+  const cost = isScout ? 1 : 2;
+  if (!vbConsume(cost)) return;
+
+  el.classList.add('vb-opened');
+
+  // Yields with role bonuses
+  const food  = room.food  + (isFarmer ? 2 : 0);
+  const metal = room.metal + (isSoldier && room.id === 'armory' ? 1 : 0);
+  const water = room.water + (isDoctor  && room.id === 'medical' ? 2 : 0);
+  const wood  = room.wood;
+
+  vbState.food  += food;
+  vbState.metal += metal;
+  vbState.water += water;
+  vbState.wood  += wood;
+  if (room.survivor) vbState.survivor = true;
+
+  vbUpdateResources();
+  vbUpdateCommsPanel();
+
+  // Build result lines
+  const lines = [];
+  if (food)  lines.push(`+${food} FOOD`);
+  if (water) lines.push(`+${water} H₂O`);
+  if (metal) lines.push(`+${metal} METAL`);
+  if (wood)  lines.push(`+${wood} WOOD`);
+  const resultHTML = (lines.length ? lines.join('<br>') : 'EMPTY') +
+    (room.survivor ? '<br><span class="vb-survivor-tag">⚠ SURVIVOR</span>' : '');
+
+  el.innerHTML = `<div class="vb-room-result">${resultHTML}</div>`;
+
+  // Update tag
+  const opened = document.querySelectorAll('.vb-room.vb-opened').length;
+  const tag = document.getElementById('vbs-scav');
+  if (tag) tag.textContent = `${opened}/6 SEARCHED`;
+
+  if (room.survivor) vbSetStatus(`survivor detected in ${room.label.toLowerCase()} — will join on boot.`);
+}
+
+// ── COMMS ──────────────────────────────────────────────────────
+function vbUpdateCommsPanel() {
+  const pwrMet = vbState.powerDone;
+  const watMet = vbState.waterDone;
+  const metMet = vbState.metal >= VB_METAL_NEEDED;
+  const allMet = pwrMet && watMet && metMet && !vbState.commsDone;
+
+  // Requirement rows
+  [['pwr',pwrMet],['wat',watMet],['met',metMet]].forEach(([k,met]) => {
+    const chk = document.getElementById(`vbrc-${k}`);
+    const row = document.getElementById(`vbr-${k}`);
+    if (chk) { chk.textContent = met ? '✓' : '✗'; chk.classList.toggle('met', met); }
+    if (row) row.classList.toggle('met', met);
+  });
+
+  // Metal bar
+  const pct = Math.min(100, (vbState.metal / VB_METAL_NEEDED) * 100);
+  const fill = document.getElementById('vb-metal-fill');
+  const lbl  = document.getElementById('vb-metal-lbl');
+  if (fill) fill.style.width = pct + '%';
+  if (lbl)  lbl.textContent = `METAL: ${vbState.metal} / ${VB_METAL_NEEDED}`;
+
+  // Build button
+  const btn = document.getElementById('vb-comms-btn');
+  if (btn && !vbState.commsDone) {
+    btn.disabled = !allMet;
+    btn.classList.toggle('vb-ready', allMet);
+    if (allMet) vbSetStatus('all requirements met — assemble the comms unit.');
+  }
+}
+
+function vbDoComms() {
+  if (vbState.commsDone) return;
+  if (!vbState.powerDone || !vbState.waterDone || vbState.metal < VB_METAL_NEEDED) return;
+  if (!vbConsume(2)) return;
+
+  vbState.commsDone = true;  // set immediately so game-over check is safe
+
+  const btn = document.getElementById('vb-comms-btn');
+  btn.disabled = true; btn.classList.remove('vb-ready');
+
+  // Animated assembly countdown
+  let tick = 0;
+  const seq = ['[ ASSEMBLING     ]','[ ASSEMBLING .   ]','[ ASSEMBLING ..  ]','[ ASSEMBLING ... ]'];
+  const iv = setInterval(() => { btn.textContent = seq[tick++ % seq.length]; }, 280);
+
+  setTimeout(() => {
+    clearInterval(iv);
+    btn.textContent = '▣ COMMS: ONLINE';
+    btn.style.cssText = 'border-color:#cc55ff;color:#cc55ff;cursor:default;';
+    const tag = document.getElementById('vbs-comms');
+    tag.textContent = 'ONLINE'; tag.classList.add('online');
+    document.getElementById('vbm-comms').classList.add('vb-done');
+    vbSetStatus('comms unit online. surface scanner active. booting...');
+    setTimeout(completeVaultBoot, 1800);
+  }, 2200);
+}
+
+// ── COMPLETE ───────────────────────────────────────────────────
+function completeVaultBoot() {
+  // Carry resources into game state
+  G.food   = vbState.food;
+  G.water  = vbState.water;
+  G.metals = vbState.metal;
+  G.wood   = vbState.wood;
+  G.power  = 80; G.phase = 2; G.turn = 1; G.scanRange = 1;
+  G.systems = { power:true, water:true, comms:true, scanner:true, fabricator:false };
+
+  // Add found survivor
+  if (vbState.survivor) {
+    const p = generatePerson();
+    p.status = 'vault'; p.arrived = 0;
+    G.people.push(p);
+    G.population = G.people.length;
+  }
+
+  // Fade out
+  const vb = document.getElementById('vault-boot');
+  vb.style.transition = 'opacity 0.9s';
+  vb.style.opacity = '0';
+  setTimeout(() => {
+    vb.style.display = 'none';
+    vb.style.opacity = ''; vb.style.transition = '';
+
+    // Boot main game
+    generateWorld();
+    unlockMap();
+    drawMap();
+    updateHUD();
+
+    // Condensed narrative log
+    log('── VAULT ZERO — ALL SYSTEMS ONLINE ──', 'alert');
+    log('surface scanner active. mapping sector zero.', 'sys', 400);
+    if (vbState.survivor) {
+      const p = G.people[G.people.length - 1];
+      log(`survivor found in maintenance bay — ${p.name.toUpperCase()} has joined you.`, 'sys', 750);
+    }
+    log(`supplies secured: ${G.food} food · ${G.water} water · ${G.metals} metal.`, 'sys', 1100);
+    logGap();
+    log('the surface awaits. explore carefully.', 'story', 1500);
+    logGap();
+
+    setTimeout(() => {
+      setActions([
+        { id:'roster',  label:'[ ROSTER ]',  style:'',        action: ()=>showPeoplePanel(false) },
+        { id:'endturn', label:'[ END DAY ]',  style:'primary', action: nextTurn },
+      ]);
+    }, 2300);
+    setTimeout(showMapTutorial, 2700);
+  }, 950);
+}
+
+// ── GAME OVER ──────────────────────────────────────────────────
+function vbGameOver() {
+  document.getElementById('vb-gameover').classList.add('vb-go-show');
+  vbSetStatus('OXYGEN DEPLETED — SYSTEMS FAILURE');
+}
+
+function vbRestart() {
+  document.getElementById('vb-gameover').classList.remove('vb-go-show');
+  showVaultBoot(); // full reset
+}
+
+/* end vault-boot */
 
 setInterval(saveGame, 15000);
 
