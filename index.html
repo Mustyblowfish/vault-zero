@@ -594,16 +594,18 @@ body::before {
 }
 #build-panel h4 { color: var(--green); margin-bottom: 8px; letter-spacing: 2px; font-size: 12px; border-bottom: 1px solid var(--green-dark); padding-bottom: 5px; }
 
-/* Build button — sits above resource charts */
+/* Build button — sits above resource charts, desktop only */
 #build-btn {
   position: absolute;
-  bottom: calc(6 * 30px + 18px);   /* roughly above the 6 chart rows */
+  bottom: calc(6 * 30px + 22px);
   right: 12px;
   z-index: 16;
-  font-size: 10px;
-  letter-spacing: 2px;
-  padding: 5px 12px;
+  font-size: 13px;
+  letter-spacing: 3px;
+  padding: 11px 22px;
   display: none;
+  border: 1px solid var(--green);
+  animation: action-panel-pulse 2.2s ease-in-out infinite;
 }
 
 /* Placement mode cursor hint */
@@ -3208,7 +3210,7 @@ function expandScan() {
   log('the map grows. ruins. forest. what might be water.', 'story', 600);
   setCooldown('scan', 4000);
 
-  if (G.discoveries >= 2 && G.phase === 2) {
+  if (G.discoveries >= 2 && G.phase === 2 && G.turn >= 5) {
     setTimeout(triggerContact, 2000);
   }
 }
@@ -3328,10 +3330,8 @@ function triggerExpansion() {
     log('you can now build outposts on explored hexes.', 'sys', 600);
     logGap();
     setActions([
-      { id:'scan',    label:'[ EXPAND SCAN ]',     style:'',       action: expandScan },
-      { id:'scout',   label:'[ SEND SCOUT ]',      style:'',       action: sendScout },
-      { id:'recruit', label:'[ RECRUIT ]',         style:'',       action: recruit },
-      { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
+      { id:'roster',  label:'[ ROSTER ]',  style:'',        action: ()=>showPeoplePanel(false) },
+      { id:'endturn', label:'[ END DAY ]', style:'primary', action: nextTurn },
     ]);
   }, 3000);
 }
@@ -3435,8 +3435,8 @@ function nextTurn() {
   // Random event
   if (Math.random() < 0.25 && G.phase >= 2) randomEvent();
 
-  // Survivor trigger
-  if (G.phase === 2 && G.discoveries >= 2 && Math.random() < 0.4) triggerContact();
+  // Survivor trigger — min 5 turns alone, low probability per turn
+  if (G.phase === 2 && G.discoveries >= 2 && G.turn >= 5 && Math.random() < 0.10) triggerContact();
 
   // Expansion trigger
   if (G.phase === 3 && G.population >= 5 && G.discoveries >= 4) triggerExpansion();
@@ -4141,7 +4141,7 @@ function dispatchScoutTo(hex, person) {
     setTimeout(()=>{ G.scoutCooldown = false; }, 1200);
 
     // Phase triggers
-    if (G.phase===2 && G.discoveries>=2) setTimeout(triggerContact, 2000);
+    if (G.phase===2 && G.discoveries>=2 && G.turn>=5) setTimeout(triggerContact, 2000);
     if (G.phase===3 && G.population>=5 && G.discoveries>=4) setTimeout(triggerExpansion, 2000);
   });
 }
@@ -5622,18 +5622,10 @@ async function loadGame() {
 }
 
 function restoreButtons() {
-  if (G.phase >= 4) {
+  if (G.phase >= 3) {
     setActions([
-      { id:'scan',    label:'[ EXPAND SCAN ]',     style:'',       action: expandScan },
-      { id:'scout',   label:'[ SEND SCOUT ]',      style:'',       action: sendScout },
-      { id:'recruit', label:'[ RECRUIT ]',         style:'',       action: recruit },
-      { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
-    ]);
-  } else if (G.phase === 3) {
-    setActions([
-      { id:'scan',    label:'[ EXPAND SCAN ]',     style:'',       action: expandScan },
-      { id:'scout',   label:'[ SEND SCOUT ]',      style:'',       action: sendScout },
-      { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
+      { id:'roster',  label:'[ ROSTER ]',  style:'',        action: ()=>showPeoplePanel(false) },
+      { id:'endturn', label:'[ END DAY ]', style:'primary', action: nextTurn },
     ]);
   } else if (G.phase === 2) {
     setActions([
@@ -5718,7 +5710,7 @@ const VB_ROOMS = [
   { id:'medical',  label:'MEDICAL BAY', icon:'✚', food:2, metal:0, water:4, wood:0, survivor:false },
   { id:'mess',     label:'MESS HALL',   icon:'▽', food:5, metal:0, water:2, wood:0, survivor:false },
   { id:'armory',   label:'ARMORY',      icon:'⚔', food:0, metal:4, water:0, wood:0, survivor:false },
-  { id:'maint',    label:'MAINTENANCE', icon:'⚙', food:0, metal:3, water:0, wood:0, survivor:true  },
+  { id:'maint',    label:'MAINTENANCE', icon:'⚙', food:0, metal:3, water:0, wood:2, survivor:false },
 ];
 
 let vbO2 = VB_O2_MAX;
