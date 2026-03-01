@@ -1,13 +1,13 @@
 # Vault Zero — Developer Notes
 
 > Living reference for Claude sessions. Update this file at the end of each session when new systems are added.
-> Last updated: session covering vb-intro mobile fix, end-day map refresh, iOS perf fixes, FEATURES flags, dev panel.
+> Last updated: vault-boot full redesign — sequential full-screen flow, slide transitions, no O2 system.
 
 ---
 
 ## File Structure
 
-Single file: `index.html` (~7600 lines). No build step. Deploy by pushing to GitHub Pages.
+Single file: `index.html` (~7500 lines). No build step. Deploy by pushing to GitHub Pages.
 
 ```
 index.html
@@ -16,7 +16,7 @@ index.html
 │   ├── #header         Top bar (always visible): VAULT ZERO title, phase tag, TEST btn, MENU btn
 │   ├── #splash         Terminal narrative boot sequence (typewriter)
 │   ├── #char-create    Survivor registration form (name, pronoun, role)
-│   ├── #vault-boot     Emergency boot mini-game (4 modules: Power/Water/Scavenge/Comms)
+│   ├── #vault-boot     Sequential boot mini-game (4 full-screen steps: Power/Water/Scavenge/Comms)
 │   ├── #scanner-boot   Full-screen lever pull → hex map transition
 │   ├── #menu-overlay   Pause menu (save/load/mute/quit)
 │   └── #main           Game proper
@@ -119,7 +119,7 @@ phase 0  → startGame() fires, terminal narrative plays
 
 phase 1  → restorePower() → restoreWater()/restoreComms() → checkSystemsProgress()
            → showVaultBoot()
-           4-module emergency boot mini-game (Power/Water/Scavenge/Comms)
+           4-step sequential boot: Power → Water → Scavenge → Comms
            → completeVaultBoot() → showScannerBoot()
            Lever pull → sbootDone() → enterSurfaceMap()
 
@@ -141,11 +141,11 @@ phase 4  → expansion phase (full game loop)
 
 | Screen | Show function | Hide/transition |
 |--------|--------------|----------------|
-| Splash (terminal) | `startGame()` L3837 | auto → `showVaultBoot()` after sequence |
+| Splash (terminal) | `startGame()` | auto → `showVaultBoot()` after sequence |
 | Char create | shown by `startGame()` before terminal | `confirmCharacter()` → hides it |
-| Vault-boot | `showVaultBoot()` L6626 | `completeVaultBoot()` → `showScannerBoot()` |
-| Scanner boot | `showScannerBoot()` L7242 | `sbootDone()` → `enterSurfaceMap()` |
-| Hex map | `enterSurfaceMap()` L7112 | stays for rest of game |
+| Vault-boot | `showVaultBoot()` | `completeVaultBoot()` → `showScannerBoot()` |
+| Scanner boot | `showScannerBoot()` | `sbootDone()` → `enterSurfaceMap()` |
+| Hex map | `enterSurfaceMap()` | stays for rest of game |
 | Menu overlay | `toggleMenu()` | `toggleMenu()` |
 
 ---
@@ -170,15 +170,24 @@ phase 4  → expansion phase (full game loop)
 
 ### Vault-boot mini-game
 All functions prefixed `vb*`. State in `vbState` object.
-**Sequential full-screen flow**: one module at a time, slides left between steps. Progress dots in `#vb-progress`.
-Module order: Power (breakers) → Water (valve choices) → Scavenge (room search + CONTINUE btn) → Comms (assemble)
-- `VB_STEP_IDS[]` — ordered array of module element IDs
-- `vbCurrentStep` — index of active module (0–3)
-- `vbGoToStep(idx)` — slide animation to new step + update progress dots
-- `vbUpdateProgress(idx)` — updates `.vbp-dot` classes
-- `vbScavContinue()` — advances from scavenge → comms
-- No O2 budget. No metal requirement for comms. Scavenge is purely for starting resource bonuses.
-Completion: `completeVaultBoot()` transitions to scanner boot.
+
+**Sequential full-screen flow** — one module fills the screen at a time, slides left on completion.
+- `#vb-progress` — step indicator bar at top (4 icon dots with connecting lines)
+- `VB_STEP_IDS[]` — ordered array: `['vbm-power','vbm-water','vbm-scav','vbm-comms']`
+- `vbCurrentStep` — index of currently visible module (0–3)
+- `vbGoToStep(idx)` — triggers slide-left animation, updates progress dots
+- `vbUpdateProgress(idx)` — sets `.vbp-active` / `.vbp-done` on dot elements
+- `vbScavContinue()` — called by CONTINUE button in scavenge → slides to comms
+
+**Step behaviour:**
+- **Power**: flip 6 breakers → ENGAGE → auto-advances after flash (1.2s)
+- **Water**: choose QUICK PATCH (+8) or FULL REPAIR (+20) → auto-advances after valve animation
+- **Scavenge**: tap any rooms for starting resource bonuses → CONTINUE button appears after first room
+- **Comms**: needs power + water only (no metal requirement) → ASSEMBLE UNIT → `completeVaultBoot()`
+
+**No O2 budget.** Role bonuses apply only in scavenge (farmer: +2 food/room, soldier: bonus armory metal, doctor: bonus medical water, scout: +1 food on food rooms).
+
+Completion: `completeVaultBoot()` passes `vbState` resources into `G`, then transitions to scanner boot.
 
 ### Scanner-boot lever
 All functions prefixed `sboot*`. State: `sbootActive`, `sbootLvProg` (0–1).
@@ -221,10 +230,10 @@ Dev panel skip functions:
 | Prefix | Area |
 |--------|------|
 | `.vb-*` / `#vb-*` | Vault-boot mini-game |
-| `.vbm-*` | Vault-boot module headers |
-| `.vbi-*` | Vault-boot intro overlay |
+| `.vbm-*` | Vault-boot module headers/bodies |
+| `.vbi-*` | Vault-boot intro briefing overlay |
+| `.vbp-*` | Vault-boot progress dots |
 | `.sboot-*` / `#sboot-*` | Scanner-boot lever screen |
-| `.cc-*` / `#cc-*` | (unused so far — reserved for char-create) |
 | `.char-*` / `#char-*` | Character creation |
 | `.btn` | Action buttons (base class) |
 | `.btn-glow` | Pulsing green glow (next recommended action) |
@@ -256,11 +265,11 @@ When adding a new half-built system: add a flag here, wrap the feature entry poi
 
 - [ ] iOS audio: still investigating full reliability of resume after long background periods
 - [ ] Hex map: initial camera position after boot reveal may not centre perfectly on all devices
+- [x] Vault-boot UX: confusing 2×2 grid replaced with sequential full-screen flow (fixed d914578)
 - [x] Vault-boot mobile: had to scroll to reach BEGIN SEQUENCE (fixed a537a34)
 - [x] Char-create mobile: UNSEAL AIRLOCK hidden below fold (fixed a537a34)
-- [x] Vault-boot UX: confusing grid layout replaced with sequential full-screen flow (this session)
 - [x] Hex map pinch zoom: iOS intercepting gesture (fixed a537a34)
-- [x] End-day map not refreshing: character highlights didn't appear until next tap (fixed this session)
+- [x] End-day map not refreshing: character highlights didn't appear until next tap (fixed 471e309)
 
 ---
 
@@ -283,7 +292,8 @@ When adding a new half-built system: add a flag here, wrap the feature entry poi
 - **Single file**: No hot-reload. Refresh browser after each save. Use git commits per feature.
 - **iOS audio**: `tryResumeAudio()` handles suspend/close on background. If audio still breaks, check `audioCtx.state` in dev panel. Audio schedulers now check `audioCtx.state !== 'running'` before creating nodes.
 - **drawMap throttle**: capped at ~60fps via timestamp check. If map looks stale, the throttle window is 14ms — adjust `_drawMapLast` check.
-- **Mobile layout breakpoint**: `≤700px` triggers compact vault-boot (2×2 grid) and compact vb-intro. Char-create compacts at `≤600px` OR `≤720px` height.
+- **Mobile layout breakpoint**: `≤700px` triggers compact vault-boot module sizing and compact vb-intro. Char-create compacts at `≤600px` OR `≤720px` height.
+- **Vault-boot module layout**: modules are `position:absolute; inset:0` inside `#vb-tasks` (relative container). `.vb-active` = `display:flex`, hidden = `display:none`. Slide uses `.vb-entering` / `.vb-leaving` with `animationend` cleanup.
 - **Map canvas sizing**: `resizeMap()` must be called after any layout change that affects `#canvas-wrap` dimensions.
 - **`mapBooting` flag**: Must be `false` before `drawMap()` can run. If map goes blank, check this flag in dev panel.
 - **G.phase gating**: Many features check `G.phase`. When adding new content, decide which phase gates it.
@@ -295,6 +305,9 @@ When adding a new half-built system: add a flag here, wrap the feature entry poi
 
 | Hash | What |
 |------|------|
+| `d914578` | Redesign vault-boot: sequential full-screen flow, slide transitions, no O2 |
+| `471e309` | Mobile UX fixes, iOS perf improvements, feature flags, issue tracker |
+| `7ea94d8` | Add DEVNOTES.md and in-game dev panel with skip buttons |
 | `a537a34` | Fix 3 iPhone issues: char-create layout, audio resume, map pinch |
 | `79398a8` | Fix vault-boot mobile layout and iOS audio resume |
 | `4d28fa2` | Add SFX system, map boot reveal, TEST button shortcut |

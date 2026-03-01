@@ -1538,18 +1538,6 @@ body::before {
   box-shadow: 0 0 8px rgba(255,255,255,0.05);
 }
 
-/* Module cost/reward strip */
-.vb-cr {
-  display: flex; align-items: center; gap: 6px;
-  padding: 3px 14px 5px;
-  font-size: 9px; letter-spacing: 1px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  flex-wrap: wrap;
-}
-.vb-cr-cost   { color: var(--amber); opacity: 0.85; }
-.vb-cr-sep    { color: rgba(255,255,255,0.2); }
-.vb-cr-reward { color: var(--mc, var(--green)); opacity: 0.85; }
-
 /* Module body — max-width centres content on wide desktops */
 .vbm-body {
   flex: 1; padding: 18px 24px 20px;
@@ -6825,7 +6813,6 @@ function vbApplyRoleHints() {
   }
 }
 
-function vbSetStatus(msg) { /* no-op — O2 header removed */ }
 
 // ── POWER ──────────────────────────────────────────────────────
 function vbBuildBreakers() {
