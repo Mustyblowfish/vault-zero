@@ -1466,16 +1466,77 @@ body::before {
   opacity: 0.9; line-height: 1.6; margin-bottom: 2px;
 }
 
-/* ── Mobile: stack modules in a single column ── */
-@media (max-width: 600px) {
+/* ── Mobile: compact 2×2 grid — keep everything on one screen ── */
+@media (max-width: 700px) {
+  /* Keep 2×2 layout — never stack to single column */
   #vb-tasks {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(4, auto);
-    overflow-y: auto;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    overflow: hidden;
   }
-  .vb-module { min-height: 210px; }
-  .vbm-title { font-size: 12px; }
-  .vb-instr  { font-size: 12px; }
+  .vb-module { min-height: 0; }
+
+  /* Vault-boot header */
+  #vb-header     { padding: 5px 10px 4px; }
+  #vb-title      { font-size: 10px; letter-spacing: 2px; margin-bottom: 3px; }
+  #vb-o2-track   { height: 9px; }
+  #vb-o2-num     { font-size: 12px; }
+  #vb-status-msg { font-size: 9px; margin-top: 2px; min-height: 11px; }
+
+  /* Resource strip */
+  .vb-res-cell        { padding: 3px 4px; }
+  .vb-res-cell .vb-rl { font-size: 8px; letter-spacing: 1px; }
+  .vb-res-cell .vb-rv { font-size: 13px; }
+
+  /* Module header */
+  .vbm-hdr   { padding: 4px 6px 3px 10px; }
+  .vbm-icon  { font-size: 14px; }
+  .vbm-title { font-size: 9px; letter-spacing: 2px; }
+  .vbm-tag   { font-size: 7px; padding: 1px 4px; letter-spacing: 1px; }
+
+  /* Module body */
+  .vbm-body  { padding: 5px 8px 5px 10px; gap: 4px; }
+  .vb-instr  { font-size: 9px; line-height: 1.4; }
+
+  /* Power module */
+  #vb-power-hint    { font-size: 9px; }
+  #vb-breaker-grid  { gap: 3px; }
+  .vb-breaker       { padding: 2px 1px; gap: 1px; }
+  .vb-breaker-label { font-size: 7px; letter-spacing: 0; }
+  .vb-breaker-slot  { width: 20px; height: 34px; }
+  .vb-breaker-tog   { height: 13px; }
+  .vb-breaker.brk-on .vb-breaker-tog { top: calc(100% - 17px); }
+  .vb-breaker-state { font-size: 7px; letter-spacing: 0; }
+  #vb-engage-btn    { font-size: 9px; letter-spacing: 2px; padding: 5px 0; }
+
+  /* Water module */
+  .vb-pipe-row      { padding: 2px 0 1px; }
+  .vb-valve         { width: 24px; height: 24px; font-size: 11px; }
+  .vb-pipe-seg      { width: 10px; }
+  .vb-pn-label      { font-size: 8px; letter-spacing: 0; }
+  .vb-water-choices { gap: 3px; }
+  .vb-wchoice       { font-size: 9px; letter-spacing: 1px; padding: 5px 7px; }
+  .vb-wchoice .vb-wcost { font-size: 8px; margin-top: 2px; }
+
+  /* Scavenge module */
+  #vb-room-grid   { gap: 3px; }
+  .vb-room        { min-height: 44px; padding: 3px 2px; }
+  .vb-room-name   { font-size: 8px; letter-spacing: 0; margin-bottom: 1px; }
+  .vb-room-q      { font-size: 15px; }
+  .vb-room-result { font-size: 8px; line-height: 1.4; }
+  .vb-scav-hint   { font-size: 9px; }
+
+  /* Comms module */
+  .vb-reqs        { gap: 3px; }
+  .vb-req-row     { font-size: 9px; gap: 5px; }
+  .vb-req-check   { width: 12px; height: 12px; font-size: 8px; }
+  .vb-metal-lbl   { font-size: 9px; }
+  .vb-metal-track { height: 7px; }
+  #vb-comms-btn   { font-size: 9px; letter-spacing: 2px; padding: 5px 0; }
+
+  /* Lock cover */
+  .vb-lk-icon { font-size: 22px; }
+  .vb-lk-msg  { font-size: 9px; line-height: 1.7; }
 }
 
 /* Module header */
@@ -1754,16 +1815,6 @@ body::before {
   font-size: 11px; letter-spacing: 3px; padding: 10px 24px;
   background: transparent; border: 1px solid var(--red);
   color: var(--red); cursor: pointer;
-}
-
-/* ── mobile ── */
-@media (max-width: 700px) {
-  #vb-tasks {
-    grid-template-columns: 1fr;
-    grid-template-rows: none;
-    overflow-y: auto;
-  }
-  .vb-module { min-height: 210px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -6285,16 +6336,20 @@ async function doRestart() {
 document.addEventListener('click', initAudio, { once: true });
 document.addEventListener('touchstart', initAudio, { once: true });
 
-// iOS: AudioContext gets suspended when app is backgrounded — resume on return
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
+// iOS Safari: AudioContext suspends whenever the app is backgrounded.
+// Resume it via every plausible re-entry path.
+function tryResumeAudio() {
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
   }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') tryResumeAudio();
 });
-// Also catch focus events (covers some edge cases)
-window.addEventListener('focus', () => {
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-});
+window.addEventListener('focus',    tryResumeAudio);
+window.addEventListener('pageshow', tryResumeAudio);   // bfcache restore on iOS
+// Persistent touch listener — most reliable iOS trigger since it counts as a user gesture
+document.addEventListener('touchstart', tryResumeAudio, { passive: true });
 
 // ESC cancels build / move placement modes
 document.addEventListener('keydown', e => {
