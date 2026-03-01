@@ -6160,7 +6160,7 @@ function encNavigate(nodeId, isEntry) {
 function encRenderActions(node, choicesEl) {
   const p = encState.person;
   const visible = node.actions.filter(a => {
-    if (a.once && encState.used.has(a.id)) return false;
+    if (encState.used.has(a.id) && !a.id.startsWith('back')) return false;
     if (a.role && (!p || p.role !== a.role)) return false;
     if (a.requires && !personHasTag(p, a.requires)) return false;
     if (a.flag && encState.flags[a.flag.k] !== a.flag.v) return false;
@@ -6188,7 +6188,7 @@ function encResolveAction(action) {
   const choicesEl = document.getElementById('encounter-choices');
   choicesEl.querySelectorAll('.enc-btn').forEach(b => b.disabled = true);
 
-  if (action.once) encState.used.add(action.id);
+  encState.used.add(action.id);
 
   let passed = true;
   if (action.check) passed = rollCheck(encState.person, action.check.stat, action.check.vs);
