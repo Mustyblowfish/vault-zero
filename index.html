@@ -3997,9 +3997,9 @@ function startGame() {
 function restorePower() {
   sndTermBtn(220);
   G.phase = 1;
-  G.power = 12;
-  G.food = 8;
-  G.water = 15;
+  G.power = 8;
+  G.food = 5;
+  G.water = 8;
   G.metals = 0;
   G.wood = 0;
   G.systems.power = true;
@@ -4527,12 +4527,12 @@ const HEX_ACTIONS = {
 };
 
 const ACTION_DEFS = {
-  forage:           { label:'Forage for Food',      icon:'◇', yields:'food',   base:3,  recon:true  },
-  hunt:             { label:'Hunt',                 icon:'⚔', yields:'food',   base:4,  combat:true },
-  collect_water:    { label:'Collect Water',        icon:'≋', yields:'water',  base:4,  recon:false },
-  scavenge_metals:  { label:'Scavenge Metals',      icon:'◆', yields:'metals', base:3,  recon:true  },
-  mine_ore:         { label:'Mine Ore',             icon:'◆', yields:'metals', base:5,  recon:false },
-  chop_wood:        { label:'Chop Wood',            icon:'❧', yields:'wood',   base:4,  recon:false },
+  forage:           { label:'Forage for Food',      icon:'◇', yields:'food',   base:2,  recon:true  },
+  hunt:             { label:'Hunt',                 icon:'⚔', yields:'food',   base:3,  combat:true },
+  collect_water:    { label:'Collect Water',        icon:'≋', yields:'water',  base:3,  recon:false },
+  scavenge_metals:  { label:'Scavenge Metals',      icon:'◆', yields:'metals', base:2,  recon:true  },
+  mine_ore:         { label:'Mine Ore',             icon:'◆', yields:'metals', base:4,  recon:false },
+  chop_wood:        { label:'Chop Wood',            icon:'❧', yields:'wood',   base:3,  recon:false },
   search_survivors: { label:'Search for Survivors', icon:'◈', yields:'morale', base:0,  recon:true  },
 };
 
