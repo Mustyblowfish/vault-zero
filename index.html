@@ -2907,7 +2907,7 @@ function sndLeverStart() {
   const out = audioCtx.createGain(); out.gain.value = 0;
   out.connect(audioCtx.destination);
   const osc = audioCtx.createOscillator();
-  osc.type = 'sawtooth'; osc.frequency.value = 55;
+  osc.type = 'sawtooth'; osc.frequency.value = 48;
   osc.connect(out); osc.start();
   sbootLvOsc = osc; sbootLvGain = out;
 }
@@ -2915,8 +2915,9 @@ function sndLeverStart() {
 function sndLeverUpdate(p) {
   if (!sbootLvOsc || !sbootLvGain || !audioCtx) return;
   const t = audioCtx.currentTime;
-  sbootLvOsc.frequency.setTargetAtTime(55 + p * 920, t, 0.02);
-  sbootLvGain.gain.setTargetAtTime(p > 0.02 ? 0.14 : 0, t, 0.05);
+  // Stay in deep mechanical range — 48Hz to ~160Hz (no high whine)
+  sbootLvOsc.frequency.setTargetAtTime(48 + p * 112, t, 0.02);
+  sbootLvGain.gain.setTargetAtTime(p > 0.02 ? 0.10 + p * 0.06 : 0, t, 0.05);
 }
 
 function sndLeverStop(engage = false) {
@@ -2924,7 +2925,25 @@ function sndLeverStop(engage = false) {
   sbootLvGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.25);
   const osc = sbootLvOsc; sbootLvOsc = null; sbootLvGain = null;
   setTimeout(() => { try { osc?.stop(); } catch(e) {} }, 350);
-  if (engage) setTimeout(sndPowerEngage, 60);
+  if (engage) { sndMechClick(); setTimeout(sndPowerEngage, 140); }
+}
+
+function sndMechClick() {
+  if (!audioCtx || isMuted) return;
+  const now = audioCtx.currentTime;
+  // Short noise burst shaped into a mechanical thunk
+  const bufLen = Math.floor(audioCtx.sampleRate * 0.06);
+  const buf  = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 2.5);
+  const src  = audioCtx.createBufferSource(); src.buffer = buf;
+  const filt = audioCtx.createBiquadFilter();
+  filt.type = 'lowpass'; filt.frequency.value = 700; filt.Q.value = 0.8;
+  const env  = audioCtx.createGain();
+  env.gain.setValueAtTime(0.55, now);
+  env.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+  src.connect(filt); filt.connect(env); env.connect(audioCtx.destination);
+  src.start(now);
 }
 
 function playMoveSound() {
@@ -3342,60 +3361,93 @@ function drawFacePortrait(canvas, name, role) {
   const rng = faceRng(nameToFaceSeed(name));
   const pal = FACE_PALETTES[role] || FACE_PALETTES.scout;
   function px(x, y, col) { ctx.fillStyle = col; ctx.fillRect(x*SCALE, y*SCALE, SCALE, SCALE); }
+  function blk(x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(x*SCALE, y*SCALE, w*SCALE, h*SCALE); }
   ctx.fillStyle = '#050d05'; ctx.fillRect(0, 0, W*SCALE, H*SCALE);
-  const faceW = 10 + Math.floor(rng()*3), faceH = 12 + Math.floor(rng()*3);
-  const faceX = Math.floor((W-faceW)/2), faceY = Math.floor((H-faceH)/2) - 2;
-  const hairLen = 1 + Math.floor(rng()*3), hairStyle = Math.floor(rng()*3);
-  const hasBeard = rng() > 0.65, browThick = rng() > 0.5 ? 2 : 1;
-  const noseStyle = Math.floor(rng()*3), mouthStyle = Math.floor(rng()*3);
-  const scarFace = rng() > 0.8;
+
+  // Large head — fills most of the canvas
+  const faceW = 30 + Math.floor(rng() * 6);  // 30–35px wide
+  const faceH = 32 + Math.floor(rng() * 5);  // 32–36px tall
+  const hairLen = 3 + Math.floor(rng() * 5); // 3–7px hair
+  const faceX = Math.floor((W - faceW) / 2);
+  const faceY = hairLen + 2;                 // leave room above for hair
+
+  const hairStyle  = Math.floor(rng() * 3);
+  const hasBeard   = rng() > 0.65;
+  const browThick  = rng() > 0.5 ? 2 : 1;
+  const noseStyle  = Math.floor(rng() * 3);
+  const mouthStyle = Math.floor(rng() * 3);
+  const scarFace   = rng() > 0.8;
+
   // Face shape
-  for (let y=0; y<faceH; y++) for (let x=0; x<faceW; x++) {
-    const edge = (y<2||y>=faceH-2)?1:0;
-    if (x<edge||x>=faceW-edge) continue;
-    px(faceX+x, faceY+y, y>faceH*0.7 ? pal.shadow : pal.skin);
+  for (let y = 0; y < faceH; y++) for (let x = 0; x < faceW; x++) {
+    const edge = (y < 2 || y >= faceH - 2) ? 1 : 0;
+    if (x < edge || x >= faceW - edge) continue;
+    px(faceX + x, faceY + y, y > faceH * 0.70 ? pal.shadow : pal.skin);
   }
+
   // Hair
-  for (let y=0; y<hairLen+1; y++) for (let x=0; x<faceW; x++) {
-    if (hairStyle===1 && x>=faceW-2 && y>0) continue;
-    if (hairStyle===2 && y>0 && (x<1||x>=faceW-1)) continue;
-    px(faceX+x, faceY-1+y, pal.hair);
+  for (let y = 0; y <= hairLen; y++) for (let x = 0; x < faceW; x++) {
+    if (hairStyle === 1 && x >= faceW - 2 && y > 0) continue;
+    if (hairStyle === 2 && y > 0 && (x < 1 || x >= faceW - 1)) continue;
+    px(faceX + x, faceY - hairLen + y, pal.hair);
   }
-  for (let x=1; x<Math.floor(faceW*0.6); x++) px(faceX+x, faceY-1, pal.hi);
-  // Eyebrows
-  const browY=faceY+2, eyeL=faceX+1, eyeR=faceX+faceW-3;
-  for (let b=0; b<browThick; b++) {
-    px(eyeL,browY-b,pal.hair); px(eyeL+1,browY-b,pal.hair);
-    px(eyeR,browY-b,pal.hair); px(eyeR+1,browY-b,pal.hair);
+  for (let x = 1; x < Math.floor(faceW * 0.6); x++) px(faceX + x, faceY - hairLen, pal.hi);
+
+  // Feature row positions (proportional to face)
+  const browY  = faceY + Math.floor(faceH * 0.12);
+  const eyeY   = faceY + Math.floor(faceH * 0.28);
+  const noseY  = faceY + Math.floor(faceH * 0.48);
+  const mouthY = faceY + Math.floor(faceH * 0.70);
+
+  // Eye x positions
+  const eyeL = faceX + Math.floor(faceW * 0.12);
+  const eyeR = faceX + faceW - Math.floor(faceW * 0.20);
+
+  // Eyebrows (3px wide)
+  for (let b = 0; b < browThick; b++) {
+    blk(eyeL, browY - b, 3, 1, pal.hair);
+    blk(eyeR - 1, browY - b, 3, 1, pal.hair);
   }
-  // Eyes
-  const eyeY=faceY+4;
-  px(eyeL,eyeY,'#000a00'); px(eyeL+1,eyeY,pal.eye);
-  px(eyeR,eyeY,'#000a00'); px(eyeR+1,eyeY,pal.eye);
-  px(eyeL,eyeY,pal.hi); px(eyeR+1,eyeY,pal.hi);
+
+  // Eyes (3px wide: highlight · colour · shadow edge)
+  px(eyeL,     eyeY, pal.hi);   px(eyeL + 1, eyeY, pal.eye); px(eyeL + 2, eyeY, '#000a00');
+  px(eyeR - 2, eyeY, '#000a00'); px(eyeR - 1, eyeY, pal.eye); px(eyeR,     eyeY, pal.hi);
+
   // Nose
-  const noseX=faceX+Math.floor(faceW/2), noseY=faceY+6;
-  if (noseStyle===0) { px(noseX,noseY+1,pal.shadow); }
-  else if (noseStyle===1) { px(noseX,noseY,pal.shadow); px(noseX,noseY+1,pal.shadow); }
-  else { px(noseX-1,noseY+1,pal.shadow); px(noseX,noseY+1,pal.shadow); px(noseX,noseY,pal.shadow); }
-  // Mouth
-  const mouthY=faceY+9, mouthX=faceX+Math.floor(faceW/2)-1;
-  if (mouthStyle===0) { px(mouthX,mouthY,'#003010'); px(mouthX+1,mouthY,'#003010'); }
-  else if (mouthStyle===1) { px(mouthX-1,mouthY+1,pal.shadow); px(mouthX,mouthY,'#003010'); px(mouthX+1,mouthY,'#003010'); px(mouthX+2,mouthY+1,pal.shadow); }
-  else { px(mouthX-1,mouthY,pal.shadow); px(mouthX,mouthY+1,'#003010'); px(mouthX+1,mouthY+1,'#003010'); px(mouthX+2,mouthY,pal.shadow); }
-  // Beard
-  if (hasBeard) for (let x=1; x<faceW-1; x++) {
-    if (rng()>0.4) px(faceX+x,faceY+faceH-2,pal.hair);
-    if (rng()>0.6) px(faceX+x,faceY+faceH-3,pal.hair);
+  const noseX = faceX + Math.floor(faceW / 2);
+  if (noseStyle === 0) {
+    px(noseX, noseY + 1, pal.shadow); px(noseX + 1, noseY + 1, pal.shadow);
+  } else if (noseStyle === 1) {
+    px(noseX, noseY, pal.shadow);
+    px(noseX - 1, noseY + 1, pal.shadow); px(noseX + 1, noseY + 1, pal.shadow);
+  } else {
+    px(noseX - 1, noseY, pal.shadow); px(noseX, noseY, pal.shadow);
+    px(noseX - 1, noseY + 1, pal.shadow); px(noseX + 1, noseY + 1, pal.shadow);
   }
+
+  // Mouth (4px wide)
+  const mouthX = faceX + Math.floor(faceW / 2) - 2;
+  if (mouthStyle === 0) {
+    blk(mouthX, mouthY, 4, 1, '#003010');
+  } else if (mouthStyle === 1) {
+    px(mouthX - 1, mouthY + 1, pal.shadow); blk(mouthX, mouthY, 4, 1, '#003010'); px(mouthX + 4, mouthY + 1, pal.shadow);
+  } else {
+    px(mouthX - 1, mouthY, pal.shadow); blk(mouthX, mouthY + 1, 4, 1, '#003010'); px(mouthX + 4, mouthY, pal.shadow);
+  }
+
+  // Beard
+  if (hasBeard) for (let x = 1; x < faceW - 1; x++) {
+    if (rng() > 0.4) px(faceX + x, faceY + faceH - 3, pal.hair);
+    if (rng() > 0.6) px(faceX + x, faceY + faceH - 2, pal.hair);
+  }
+
   // Scar
   if (scarFace) {
-    const scarX=faceX+2+Math.floor(rng()*(faceW-4));
-    px(scarX,faceY+3,'#ff3030'); px(scarX,faceY+4,'#ff3030'); px(scarX+1,faceY+5,'#ff3030');
+    const scarX = faceX + 3 + Math.floor(rng() * (faceW - 6));
+    const scarBase = faceY + Math.floor(faceH * 0.22);
+    px(scarX, scarBase, '#ff3030'); px(scarX, scarBase + 3, '#ff3030'); px(scarX + 1, scarBase + 6, '#ff3030');
   }
-  // Neck
-  const neckW=Math.floor(faceW*0.4), neckX=faceX+Math.floor((faceW-neckW)/2);
-  for (let y=0; y<3; y++) for (let x=0; x<neckW; x++) px(neckX+x,faceY+faceH+y,pal.shadow);
+  // No neck — head fills the frame
 }
 
 const MAX_FATIGUE = 5; // turns in the field before a character must rest
@@ -5686,7 +5738,7 @@ function openHexInfo(h) {
       : '';
     const hiFat = personHere.fatigue||0;
     const hiFatColor = hiFat >= MAX_FATIGUE ? 'var(--red)' : hiFat >= MAX_FATIGUE-1 ? '#ffb000' : '#003a00';
-    const fatStr = `<div style="font-size:9px;color:${hiFatColor};letter-spacing:1px;margin-top:1px;">FAT ${'█'.repeat(hiFat)}${'░'.repeat(MAX_FATIGUE-hiFat)}${hiFat>=MAX_FATIGUE?' EXHAUSTED':hiFat>=MAX_FATIGUE-1?' TIRED':''}</div>`;
+    const fatStr = `<div style="font-size:9px;color:${hiFatColor};letter-spacing:1px;margin-top:1px;">FTG ${'█'.repeat(hiFat)}${'░'.repeat(MAX_FATIGUE-hiFat)}${hiFat>=MAX_FATIGUE?' EXHAUSTED':hiFat>=MAX_FATIGUE-1?' TIRED':''}</div>`;
     hiMeta.innerHTML = `<div style="font-size:11px;color:var(--green);letter-spacing:1px;">${personHere.name.split(' ')[0].toUpperCase()}</div>
       <div style="font-size:9px;color:var(--green-dim);letter-spacing:1px;">${personHere.role}</div>${fatStr}${woundStr}`;
     personHeader.appendChild(hiCanvas);
@@ -6108,7 +6160,7 @@ function openRosterOverlay() {
           const fat = p.fatigue||0;
           const fatColor = fat >= MAX_FATIGUE ? 'var(--red)' : fat >= MAX_FATIGUE-1 ? '#ffb000' : '#003a00';
           const fatLabel = fat >= MAX_FATIGUE ? 'EXHAUSTED' : fat >= MAX_FATIGUE-1 ? 'TIRED' : '';
-          return `<div style="font-size:11px;color:${fatColor};letter-spacing:1px;margin-top:2px;">FAT ${'█'.repeat(fat)}${'░'.repeat(MAX_FATIGUE-fat)}${fatLabel?' — '+fatLabel:''}</div>`;
+          return `<div style="font-size:11px;color:${fatColor};letter-spacing:1px;margin-top:2px;">FTG ${'█'.repeat(fat)}${'░'.repeat(MAX_FATIGUE-fat)}${fatLabel?' — '+fatLabel:''}</div>`;
         })()}
         ${(p.wounds||0)>0 ? `<div style="font-size:11px;color:var(--red);letter-spacing:1px;margin-top:2px;">WOUNDS: ${'●'.repeat(p.wounds||0)}${'○'.repeat(Math.max(0,3-(p.wounds||0)))}</div>` : ''}`;
       div.appendChild(info);
