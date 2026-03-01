@@ -170,7 +170,14 @@ phase 4  → expansion phase (full game loop)
 
 ### Vault-boot mini-game
 All functions prefixed `vb*`. State in `vbState` object.
-Module order: Power (breakers) → Water (valve choices) → Scavenge (room search) → Comms (requirements)
+**Sequential full-screen flow**: one module at a time, slides left between steps. Progress dots in `#vb-progress`.
+Module order: Power (breakers) → Water (valve choices) → Scavenge (room search + CONTINUE btn) → Comms (assemble)
+- `VB_STEP_IDS[]` — ordered array of module element IDs
+- `vbCurrentStep` — index of active module (0–3)
+- `vbGoToStep(idx)` — slide animation to new step + update progress dots
+- `vbUpdateProgress(idx)` — updates `.vbp-dot` classes
+- `vbScavContinue()` — advances from scavenge → comms
+- No O2 budget. No metal requirement for comms. Scavenge is purely for starting resource bonuses.
 Completion: `completeVaultBoot()` transitions to scanner boot.
 
 ### Scanner-boot lever
@@ -251,6 +258,7 @@ When adding a new half-built system: add a flag here, wrap the feature entry poi
 - [ ] Hex map: initial camera position after boot reveal may not centre perfectly on all devices
 - [x] Vault-boot mobile: had to scroll to reach BEGIN SEQUENCE (fixed a537a34)
 - [x] Char-create mobile: UNSEAL AIRLOCK hidden below fold (fixed a537a34)
+- [x] Vault-boot UX: confusing grid layout replaced with sequential full-screen flow (this session)
 - [x] Hex map pinch zoom: iOS intercepting gesture (fixed a537a34)
 - [x] End-day map not refreshing: character highlights didn't appear until next tap (fixed this session)
 
