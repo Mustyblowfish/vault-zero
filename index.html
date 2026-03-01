@@ -1565,6 +1565,25 @@ body::before {
   /* Lock cover */
   .vb-lk-icon { font-size: 22px; }
   .vb-lk-msg  { font-size: 9px; line-height: 1.7; }
+
+  /* Intro/briefing overlay — compress so BEGIN SEQUENCE is always visible */
+  #vb-intro {
+    justify-content: flex-start;  /* center overflows above viewport, can't scroll up */
+    padding: 8px 16px 12px;
+    gap: 6px;
+  }
+  .vbi-alert      { font-size: 10px; padding: 3px 10px; }
+  .vbi-title      { font-size: 15px; letter-spacing: 2px; }
+  .vbi-sub        { font-size: 10px; line-height: 1.5; }
+  .vbi-budget     { padding: 4px 20px; gap: 2px; }
+  .vbi-budget-n   { font-size: 24px; }
+  .vbi-budget-l   { font-size: 9px; letter-spacing: 2px; }
+  .vbi-steps      { gap: 4px; }
+  .vbi-step       { padding: 5px 8px 5px 8px; gap: 8px; }
+  .vbi-step-ic    { font-size: 14px; }
+  .vbi-step-t     { font-size: 10px; letter-spacing: 1px; }
+  .vbi-step-d     { font-size: 9px; line-height: 1.4; letter-spacing: 0; }
+  #vbi-start      { font-size: 12px; letter-spacing: 3px; padding: 9px 0; margin-top: 2px; }
 }
 
 /* Module header */
@@ -2788,18 +2807,21 @@ function startAmbience() {
 
   // Layer 3: Occasional random electrical ticks / relay clicks
   function scheduleClick() {
-    if (!audioCtx) return;
+    if (!audioCtx || audioCtx.state !== 'running') {
+      setTimeout(scheduleClick, 2000); // retry when audio resumes
+      return;
+    }
     const delay = 2 + Math.random() * 8;
-    setTimeout(() => {
-      playClick();
-      scheduleClick();
-    }, delay * 1000);
+    setTimeout(() => { playClick(); scheduleClick(); }, delay * 1000);
   }
   scheduleClick();
 
   // Layer 4: Sub-bass pulse (server heartbeat)
   function schedulePulse() {
-    if (!audioCtx) return;
+    if (!audioCtx || audioCtx.state !== 'running') {
+      setTimeout(schedulePulse, 2000); // retry when audio resumes
+      return;
+    }
     const osc = audioCtx.createOscillator();
     const env = audioCtx.createGain();
     osc.type = 'sine';
@@ -2811,6 +2833,8 @@ function startAmbience() {
     env.connect(master);
     osc.start();
     osc.stop(audioCtx.currentTime + 0.7);
+    // Disconnect nodes after they finish so iOS WebAudio GC can collect them
+    osc.onended = () => { try { osc.disconnect(); env.disconnect(); } catch(_){} };
     setTimeout(schedulePulse, 3000 + Math.random() * 5000);
   }
   setTimeout(schedulePulse, 1500);
@@ -3107,6 +3131,16 @@ function playBootBeep(type) {
     });
   }
 }
+
+// ══════════════════════════════════════════════
+//  FEATURE FLAGS  — set false to disable WIP systems
+// ══════════════════════════════════════════════
+const FEATURES = {
+  enemies:    true,   // enemy unit spawning and movement
+  encounters: true,   // CYOA encounter system on hex explore
+  building:   true,   // build-panel / structure placement
+  saving:     true,   // save / load to localStorage
+};
 
 // ══════════════════════════════════════════════
 //  GAME STATE
@@ -4380,6 +4414,10 @@ function nextTurn() {
   // ── Spawn and move enemies ──
   maybeSpawnEnemy();
   setTimeout(moveEnemies, 400);
+
+  // Refresh map so character action-ready highlights appear immediately on new turn.
+  // Delayed past enemy movement so the canvas shows the final state.
+  setTimeout(drawMap, 500);
 }
 
 const EVENTS = [
@@ -4719,8 +4757,13 @@ function resizeMap() {
 function w2s(wx,wy){return{x:wx-camX+W2/2,y:wy-camY+H2/2};}
 function s2w(sx,sy){return{x:sx+camX-W2/2,y:sy+camY-H2/2};}
 
+let _drawMapLast = 0;
 function drawMap() {
   if (!G.mapUnlocked || mapBooting) return;
+  // Throttle to ~60fps — prevents GPU choke on rapid successive calls (iOS)
+  const now = performance.now();
+  if (now - _drawMapLast < 14) return;
+  _drawMapLast = now;
   ctx2.clearRect(0,0,W2,H2);
   ctx2.fillStyle='#020602';
   ctx2.fillRect(0,0,W2,H2);

@@ -1,7 +1,7 @@
 # Vault Zero — Developer Notes
 
 > Living reference for Claude sessions. Update this file at the end of each session when new systems are added.
-> Last updated: session covering mobile layout, audio resume, and dev tooling.
+> Last updated: session covering vb-intro mobile fix, end-day map refresh, iOS perf fixes, FEATURES flags, dev panel.
 
 ---
 
@@ -226,14 +226,60 @@ Dev panel skip functions:
 
 ---
 
+## Feature Flags (`FEATURES` object, top of JS ~L3111)
+
+Toggle entire systems on/off without deleting code. Set `false` to disable WIP features.
+
+```javascript
+const FEATURES = {
+  enemies:    true,   // enemy spawning + movement
+  encounters: true,   // CYOA encounter overlays on hex explore
+  building:   true,   // build panel / structure placement
+  saving:     true,   // localStorage save/load
+};
+```
+
+When adding a new half-built system: add a flag here, wrap the feature entry points in `if (FEATURES.myFeature)`, set to `false` until ready.
+
+---
+
+## Known Issues
+
+> Update this list as bugs are found/fixed. Format: `- [ ] description` (open) or `- [x] description (fixed vXXXXXXX)`.
+
+- [ ] iOS audio: still investigating full reliability of resume after long background periods
+- [ ] Hex map: initial camera position after boot reveal may not centre perfectly on all devices
+- [x] Vault-boot mobile: had to scroll to reach BEGIN SEQUENCE (fixed a537a34)
+- [x] Char-create mobile: UNSEAL AIRLOCK hidden below fold (fixed a537a34)
+- [x] Hex map pinch zoom: iOS intercepting gesture (fixed a537a34)
+- [x] End-day map not refreshing: character highlights didn't appear until next tap (fixed this session)
+
+---
+
+## Planned Features
+
+> Update this list as features are discussed. Format: `- [ ] description` (not started) or `- [~] description` (in progress).
+
+- [ ] More encounter types (CYOA) — wilderness, ruins, survivor camps
+- [ ] Enemy behaviour: different enemy types with varied movement patterns
+- [ ] Building upgrades — upgrade SOLAR/GROWLIGHT etc. for better yields
+- [ ] Scout mission system — assign scouts to multi-turn missions with outcomes
+- [ ] Radio transmissions / story events that evolve by phase
+- [ ] Fog of war reveal animations
+- [ ] Win condition / end-game sequence
+
+---
+
 ## Things to Watch / Known Limitations
 
 - **Single file**: No hot-reload. Refresh browser after each save. Use git commits per feature.
-- **iOS audio**: `tryResumeAudio()` handles suspend/close on background. If audio still breaks, check `audioCtx.state` in dev panel.
-- **Mobile layout breakpoint**: `≤700px` triggers compact vault-boot (2×2 grid). Char-create compacts at `≤600px` OR `≤720px` height.
+- **iOS audio**: `tryResumeAudio()` handles suspend/close on background. If audio still breaks, check `audioCtx.state` in dev panel. Audio schedulers now check `audioCtx.state !== 'running'` before creating nodes.
+- **drawMap throttle**: capped at ~60fps via timestamp check. If map looks stale, the throttle window is 14ms — adjust `_drawMapLast` check.
+- **Mobile layout breakpoint**: `≤700px` triggers compact vault-boot (2×2 grid) and compact vb-intro. Char-create compacts at `≤600px` OR `≤720px` height.
 - **Map canvas sizing**: `resizeMap()` must be called after any layout change that affects `#canvas-wrap` dimensions.
-- **`mapBooting` flag**: Must be `false` before `drawMap()` can run. If map goes blank, check this flag.
+- **`mapBooting` flag**: Must be `false` before `drawMap()` can run. If map goes blank, check this flag in dev panel.
 - **G.phase gating**: Many features check `G.phase`. When adding new content, decide which phase gates it.
+- **Audio node GC on iOS**: `schedulePulse` now disconnects nodes via `onended` callback. All new short-lived SFX nodes should do the same to prevent WebAudio memory growth.
 
 ---
 
