@@ -1463,9 +1463,9 @@ body::before {
   #vb-breaker-grid  { gap: 4px; }
   .vb-breaker       { padding: 3px 2px; gap: 2px; }
   .vb-breaker-label { font-size: 8px; letter-spacing: 0; }
-  .vb-breaker-slot  { width: 26px; height: 42px; }
-  .vb-breaker-tog   { height: 15px; }
-  .vb-breaker.brk-on .vb-breaker-tog { top: calc(100% - 19px); }
+  .vb-breaker-slot  { width: 32px; height: 54px; }
+  .vb-breaker-tog   { height: 20px; }
+  .vb-breaker.brk-on .vb-breaker-tog { top: calc(100% - 24px); }
   .vb-breaker-state { font-size: 8px; letter-spacing: 0; }
   #vb-engage-btn    { font-size: 11px; letter-spacing: 2px; padding: 10px 0; margin-top: 4px; }
 
@@ -1474,10 +1474,6 @@ body::before {
   .vb-valve         { width: 32px; height: 32px; font-size: 14px; }
   .vb-pipe-seg      { width: 14px; }
   .vb-pn-label      { font-size: 9px; letter-spacing: 0; }
-  .vb-water-choices { gap: 6px; }
-  .vb-wchoice       { font-size: 12px; letter-spacing: 1px; padding: 12px 10px; }
-  .vb-wchoice .vb-wcost { font-size: 10px; margin-top: 3px; }
-
   /* Scavenge module */
   #vb-room-grid   { gap: 5px; }
   .vb-room        { min-height: 54px; padding: 5px 3px; }
@@ -1572,24 +1568,24 @@ body::before {
 }
 .vb-breaker.brk-on .vb-breaker-label { color: var(--amber); }
 .vb-breaker-slot {
-  width: 26px; height: 46px;
+  width: 38px; height: 64px;
   background: #080400; border: 1px solid #331800;
   border-radius: 3px; position: relative; overflow: hidden;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .vb-breaker.brk-on .vb-breaker-slot {
   border-color: var(--amber);
-  box-shadow: 0 0 10px rgba(255,176,0,0.2);
+  box-shadow: 0 0 14px rgba(255,176,0,0.3);
 }
 .vb-breaker-tog {
-  position: absolute; left: 4px; right: 4px; height: 16px;
+  position: absolute; left: 5px; right: 5px; height: 24px;
   background: #3a1a00; border-radius: 2px; top: 4px;
   transition: top 0.2s ease, background 0.2s;
 }
 .vb-breaker.brk-on .vb-breaker-tog {
-  top: calc(100% - 20px);
+  top: calc(100% - 28px);
   background: var(--amber);
-  box-shadow: 0 -3px 8px rgba(255,176,0,0.4);
+  box-shadow: 0 -3px 10px rgba(255,176,0,0.5);
 }
 .vb-breaker-state {
   font-size: 10px; letter-spacing: 1px;
@@ -1625,11 +1621,17 @@ body::before {
 .vb-pn-label { font-size: 11px; letter-spacing: 1px; color: #007799; transition: color 0.4s; }
 .vb-pn-label.flowing { color: #00aacc; }
 .vb-valve {
-  width: 34px; height: 34px; border-radius: 50%;
+  width: 38px; height: 38px; border-radius: 50%;
   border: 2px solid #005577; background: #000d14;
   display: flex; align-items: center; justify-content: center;
-  font-size: 15px; color: #005577;
-  transition: all 0.35s; cursor: default;
+  font-size: 17px; color: #005577;
+  transition: all 0.35s; cursor: pointer;
+}
+.vb-valve.open { pointer-events: none; }
+.vb-water-status {
+  font-size: 11px; letter-spacing: 2px; color: #006688;
+  text-align: center; margin-top: auto; padding-top: 10px;
+  transition: color 0.4s;
 }
 .vb-valve.open {
   border-color: #00ccff; color: #00ccff;
@@ -1647,19 +1649,6 @@ body::before {
   background: #00ccff;
   box-shadow: 0 0 6px rgba(0,204,255,0.4);
 }
-.vb-water-choices { display: flex; flex-direction: column; gap: 6px; flex: 1; justify-content: center; }
-.vb-wchoice {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 12px; letter-spacing: 2px; padding: 9px 12px;
-  background: rgba(0,40,60,0.4); border: 1px solid #006688;
-  color: #00aacc; cursor: pointer; text-align: left;
-  transition: all 0.2s; line-height: 1;
-}
-.vb-wchoice:hover { background: rgba(0,80,120,0.25); border-color: #00ccff; color: #00ccff; }
-.vb-wchoice .vb-wcost {
-  display: block; font-size: 11px; color: #0099bb; margin-top: 4px; letter-spacing: 1px;
-}
-.vb-wchoice:hover .vb-wcost { color: #00aacc; }
 
 /* ─────────────────────────────────────
    SCAVENGE MODULE — room door cards
@@ -1789,6 +1778,38 @@ body::before {
   animation: vb-fadein 0.3s ease;
 }
 @keyframes vb-fadein { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+
+/* ── rotary dial (comms module) ── */
+.vb-rotary {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; margin-top: auto; padding-top: 14px; user-select: none;
+}
+.vb-rotary-label { font-size: 11px; letter-spacing: 2px; color: var(--mc, var(--green-dim)); text-align: center; }
+.vb-rotary-dial-wrap { position: relative; width: 84px; height: 84px; }
+.vb-rotary-notch {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 6px; height: 8px; background: var(--mc, var(--green));
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%); z-index: 2;
+}
+.vb-rotary-dial {
+  width: 84px; height: 84px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #100a10, #050205);
+  border: 2px solid var(--mc, var(--green-dark));
+  cursor: grab; touch-action: none; position: relative;
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.5), inset 0 0 12px rgba(0,0,0,0.8);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.vb-rotary-pointer {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  width: 3px; height: 20px; background: var(--mc, var(--green)); border-radius: 1px;
+}
+.vb-rotary-dial:active { cursor: grabbing; }
+.vb-rotary-hint { font-size: 9px; letter-spacing: 2px; color: var(--mc, var(--green-dim)); opacity: 0.6; text-align: center; }
+.vb-rotary.vb-hs-done .vb-rotary-dial {
+  border-color: var(--mc, var(--green));
+  box-shadow: 0 0 16px rgba(204,85,255,0.35), inset 0 0 12px rgba(0,0,0,0.8);
+}
+.vb-rotary.vb-hs-locked { opacity: 0.28; pointer-events: none; }
 
 /* ═══════════════════════════════════════════════════════════════
    SCANNER BOOT SCREEN
@@ -2177,7 +2198,7 @@ body::before {
           <span class="vbi-step-ic">◈</span>
           <div class="vbi-step-body">
             <span class="vbi-step-t">STEP 2 &nbsp;·&nbsp; WATER RECLAMATION</span>
-            <span class="vbi-step-d">Choose QUICK PATCH (+8 water) or FULL REPAIR (+20 water).</span>
+            <span class="vbi-step-d">Open the three valves to restore water reclamation.</span>
           </div>
         </div>
         <div class="vbi-step vbi-step-scv">
@@ -2234,35 +2255,25 @@ body::before {
           <span class="vbm-tag" id="vbs-water">OFFLINE</span>
         </div>
         <div class="vbm-body">
-          <div class="vb-instr">Choose a repair method — quick patch is fast, full repair gives more water</div>
-          <!-- decorative pipe diagram -->
+          <div class="vb-instr" id="vb-water-hint">Turn each valve to restore flow — tap to open</div>
+          <!-- interactive pipe diagram -->
           <div class="vb-pipe-row">
             <div class="vb-pipe-node">
-              <div class="vb-valve" id="vbv-0">⊕</div>
+              <div class="vb-valve" id="vbv-0" onclick="vbOpenValve(0)">⊕</div>
               <div class="vb-pn-label" id="vbpl-0">INTAKE</div>
             </div>
             <div class="vb-pipe-seg" id="vbps-0"></div>
             <div class="vb-pipe-node">
-              <div class="vb-valve" id="vbv-1">⊕</div>
+              <div class="vb-valve" id="vbv-1" onclick="vbOpenValve(1)">⊕</div>
               <div class="vb-pn-label" id="vbpl-1">FILTER</div>
             </div>
             <div class="vb-pipe-seg" id="vbps-1"></div>
             <div class="vb-pipe-node">
-              <div class="vb-valve" id="vbv-2">⊕</div>
+              <div class="vb-valve" id="vbv-2" onclick="vbOpenValve(2)">⊕</div>
               <div class="vb-pn-label" id="vbpl-2">TANK</div>
             </div>
           </div>
-          <!-- choice buttons -->
-          <div class="vb-water-choices" id="vb-water-choices">
-            <button class="vb-wchoice" onclick="vbDoWater('quick')">
-              QUICK PATCH
-              <span class="vb-wcost" id="vb-wc-quick">+8 WATER</span>
-            </button>
-            <button class="vb-wchoice" onclick="vbDoWater('full')">
-              FULL REPAIR
-              <span class="vb-wcost" id="vb-wc-full">+20 WATER</span>
-            </button>
-          </div>
+          <div class="vb-water-status" id="vb-water-status">0 / 3 VALVES OPEN</div>
         </div>
       </div>
 
@@ -2306,12 +2317,15 @@ body::before {
               <span class="vb-req-label">WATER COOLANT ONLINE</span>
             </div>
           </div>
-          <div class="vb-hslider vb-hs-locked" id="vb-comms-slider">
-            <div class="vb-hs-label">▶ ASSEMBLE COMMS UNIT</div>
-            <div class="vb-hs-track">
-              <div class="vb-hs-fill"></div>
-              <div class="vb-hs-handle">▶▶</div>
+          <div class="vb-rotary vb-hs-locked" id="vb-comms-rotary">
+            <div class="vb-rotary-label">TUNE FREQUENCY TO ASSEMBLE</div>
+            <div class="vb-rotary-dial-wrap">
+              <div class="vb-rotary-notch"></div>
+              <div class="vb-rotary-dial" id="vb-comms-dial">
+                <div class="vb-rotary-pointer"></div>
+              </div>
             </div>
+            <div class="vb-rotary-hint">rotate dial to align pointer</div>
           </div>
         </div>
       </div>
@@ -2787,19 +2801,33 @@ function sndBlip(freq, dur = 0.09, vol = 0.35) {
   osc.start(); osc.stop(audioCtx.currentTime + dur + 0.02);
 }
 
-// Breaker toggle: noise burst + pitched click (tone depends on on/off)
+// Breaker toggle: heavy mechanical clunk with bass thump
 function sndBreaker(isOn) {
-  const out = sfxOut(0.45); if (!out) return;
-  const bufSz = Math.floor(audioCtx.sampleRate * 0.05);
+  const out = sfxOut(0.55); if (!out) return;
+  const now = audioCtx.currentTime;
+  // Low-frequency thump
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine'; osc.frequency.setValueAtTime(isOn ? 90 : 60, now);
+  osc.frequency.exponentialRampToValueAtTime(isOn ? 30 : 20, now + 0.08);
+  const thumpEnv = audioCtx.createGain();
+  thumpEnv.gain.setValueAtTime(0.9, now);
+  thumpEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  osc.connect(thumpEnv); thumpEnv.connect(out);
+  osc.start(now); osc.stop(now + 0.15);
+  // Noise burst — low & heavy
+  const bufSz = Math.floor(audioCtx.sampleRate * 0.06);
   const buf = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
   const d = buf.getChannelData(0);
   for (let i = 0; i < bufSz; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / bufSz);
   const src = audioCtx.createBufferSource(); src.buffer = buf;
   const fil = audioCtx.createBiquadFilter(); fil.type = 'bandpass';
-  fil.frequency.value = isOn ? 900 : 420; fil.Q.value = 1.5;
-  const env = audioCtx.createGain(); env.gain.value = 0.6;
-  src.connect(fil); fil.connect(env); env.connect(out); src.start();
-  setTimeout(() => sndBlip(isOn ? 720 : 360, 0.07, 0.3), 15);
+  fil.frequency.value = isOn ? 180 : 120; fil.Q.value = 0.8;
+  const noiseEnv = audioCtx.createGain();
+  noiseEnv.gain.setValueAtTime(0.7, now);
+  noiseEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  src.connect(fil); fil.connect(noiseEnv); noiseEnv.connect(out); src.start(now);
+  // High click at end for realism
+  setTimeout(() => sndBlip(isOn ? 440 : 260, 0.04, 0.25), 40);
 }
 
 // Power engage: big electrical surge sweep (sawtooth + harmonic)
@@ -2816,6 +2844,24 @@ function sndPowerEngage() {
     osc.connect(env); env.connect(out);
     osc.start(); osc.stop(audioCtx.currentTime + 0.6);
   });
+}
+
+// Slider grab: short soft noise tick
+function sndSliderStart() {
+  const out = sfxOut(0.18); if (!out) return;
+  const now = audioCtx.currentTime;
+  const bufLen = Math.floor(audioCtx.sampleRate * 0.03);
+  const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
+  const src = audioCtx.createBufferSource(); src.buffer = buf;
+  const filt = audioCtx.createBiquadFilter();
+  filt.type = 'bandpass'; filt.frequency.value = 380; filt.Q.value = 1.2;
+  const env = audioCtx.createGain();
+  env.gain.setValueAtTime(0.14, now);
+  env.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+  src.connect(filt); filt.connect(env); env.connect(out);
+  src.start(now);
 }
 
 // Water choice: hydraulic whoosh (descending sine + entry blip)
@@ -6771,6 +6817,7 @@ function vbInitHSlider(sliderId, onComplete) {
     handle.style.transition = 'none'; fill.style.transition = 'none';
     setPos(0);
     handle._dragStartX = e.clientX;
+    sndSliderStart();
   });
 
   handle.addEventListener('pointermove', e => {
@@ -6783,6 +6830,7 @@ function vbInitHSlider(sliderId, onComplete) {
       fill.style.transition   = 'width 0.2s ease-out';
       setPos(track.offsetWidth - handle.offsetWidth);
       slider.classList.add('vb-hs-done');
+      sndMechClick();
       setTimeout(onComplete, 250);
     }
   });
@@ -6807,6 +6855,74 @@ function vbResetHSlider(sliderId) {
   const fill   = slider.querySelector('.vb-hs-fill');
   if (handle) { handle.style.transition = 'none'; handle.style.transform = 'translateX(0)'; }
   if (fill && handle) { fill.style.transition = 'none'; fill.style.width = handle.offsetWidth + 'px'; }
+}
+
+function vbInitRotaryDial(dialId, onComplete) {
+  const wrap = document.getElementById(dialId);
+  if (!wrap || wrap._vbDialInited) return;
+  wrap._vbDialInited = true;
+  wrap._vbDialDone = false;
+  const dial = wrap.querySelector('.vb-rotary-dial');
+  const hint = wrap.querySelector('.vb-rotary-hint');
+  let currentAngle = 180;
+  const SNAP_RANGE = 18;
+  dial.style.transform = 'rotate(180deg)';
+
+  function getAngleFromCenter(e) {
+    const rect = dial.getBoundingClientRect();
+    return Math.atan2(e.clientY - (rect.top + rect.height / 2),
+                      e.clientX - (rect.left + rect.width / 2)) * 180 / Math.PI;
+  }
+
+  let pointerStartAngle = 0, dialStartAngle = 180;
+  dial.addEventListener('pointerdown', e => {
+    if (wrap._vbDialDone || wrap.classList.contains('vb-hs-locked')) return;
+    e.preventDefault();
+    dial.setPointerCapture(e.pointerId);
+    pointerStartAngle = getAngleFromCenter(e);
+    dialStartAngle = currentAngle;
+    dial.style.transition = 'none';
+    sndSliderStart();
+  });
+
+  dial.addEventListener('pointermove', e => {
+    if (!dial.hasPointerCapture(e.pointerId)) return;
+    let delta = getAngleFromCenter(e) - pointerStartAngle;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    currentAngle = dialStartAngle + delta;
+    let norm = ((currentAngle % 360) + 360) % 360;
+    if (norm > 180) norm -= 360;
+    dial.style.transform = `rotate(${norm}deg)`;
+    if (Math.abs(norm) < SNAP_RANGE) {
+      dial.releasePointerCapture(e.pointerId);
+      wrap._vbDialDone = true;
+      dial.style.transition = 'transform 0.25s ease-out';
+      dial.style.transform = 'rotate(0deg)';
+      wrap.classList.add('vb-hs-done');
+      if (hint) hint.textContent = 'FREQUENCY LOCKED';
+      sndMechClick();
+      setTimeout(onComplete, 300);
+    }
+  });
+
+  function releaseDial(e) {
+    if (!dial.hasPointerCapture(e.pointerId)) return;
+    dial.releasePointerCapture(e.pointerId);
+  }
+  dial.addEventListener('pointerup', releaseDial);
+  dial.addEventListener('pointercancel', releaseDial);
+}
+
+function vbResetRotaryDial(dialId) {
+  const wrap = document.getElementById(dialId);
+  if (!wrap) return;
+  wrap._vbDialDone = false;
+  wrap.classList.remove('vb-hs-done');
+  const dial = wrap.querySelector('.vb-rotary-dial');
+  const hint = wrap.querySelector('.vb-rotary-hint');
+  if (dial) { dial.style.transition = 'none'; dial.style.transform = 'rotate(180deg)'; }
+  if (hint) hint.textContent = 'rotate dial to align pointer';
 }
 
 // ── Entry point ────────────────────────────────────────────────
@@ -6848,27 +6964,24 @@ function showVaultBoot() {
     if (i === 0) m.classList.add('vb-active');
   });
 
-  // Reset pipe diagram
+  // Reset pipe diagram + water valve counter
+  vbValvesOpen = 0;
   [0,1,2].forEach(i => {
-    document.getElementById(`vbv-${i}`)?.classList.remove('open');
+    const vEl = document.getElementById(`vbv-${i}`);
+    if (vEl) { vEl.classList.remove('open'); }
     document.getElementById(`vbps-${i}`)?.classList.remove('flowing');
     document.getElementById(`vbpl-${i}`)?.classList.remove('flowing');
   });
+  const wHint = document.getElementById('vb-water-hint');
+  if (wHint) wHint.textContent = 'Turn each valve to restore flow — tap to open';
+  const wStatus = document.getElementById('vb-water-status');
+  if (wStatus) { wStatus.textContent = '0 / 3 VALVES OPEN'; wStatus.style.color = ''; }
 
   // Reset engage button
   const eng = document.getElementById('vb-engage-btn');
   eng.disabled = true; eng.classList.remove('vb-ready');
   eng.textContent = '[ ENGAGE MAIN BREAKER ]';
   eng.style.cssText = '';
-
-  // Reset water choices
-  document.getElementById('vb-water-choices').innerHTML = `
-    <button class="vb-wchoice" onclick="vbDoWater('quick')">
-      QUICK PATCH<span class="vb-wcost" id="vb-wc-quick">+8 WATER</span>
-    </button>
-    <button class="vb-wchoice" onclick="vbDoWater('full')">
-      FULL REPAIR<span class="vb-wcost" id="vb-wc-full">+20 WATER</span>
-    </button>`;
 
   // Reset requirement checks
   ['vbrc-pwr','vbrc-wat'].forEach(id => {
@@ -6879,15 +6992,15 @@ function showVaultBoot() {
     document.getElementById(id)?.classList.remove('met');
   });
 
-  // Init & reset sliders (init is guarded — safe to call each time)
+  // Init & reset sliders / rotary
   vbInitHSlider('vb-scav-slider', () => vbScavContinue());
-  vbInitHSlider('vb-comms-slider', () => vbDoComms());
   vbResetHSlider('vb-scav-slider');
-  vbResetHSlider('vb-comms-slider');
   const scavSl = document.getElementById('vb-scav-slider');
   if (scavSl) scavSl.style.display = 'none';
-  const commsSl = document.getElementById('vb-comms-slider');
-  if (commsSl) commsSl.classList.add('vb-hs-locked');
+  vbInitRotaryDial('vb-comms-rotary', () => vbDoComms());
+  vbResetRotaryDial('vb-comms-rotary');
+  const commsRot = document.getElementById('vb-comms-rotary');
+  if (commsRot) commsRot.classList.add('vb-hs-locked');
 
   // Reset progress indicator
   vbUpdateProgress(0);
@@ -7040,38 +7153,34 @@ function vbEngagePower() {
 }
 
 // ── WATER ──────────────────────────────────────────────────────
-function vbDoWater(type) {
+let vbValvesOpen = 0;
+function vbOpenValve(idx) {
   if (vbState.waterDone) return;
+  const valve = document.getElementById(`vbv-${idx}`);
+  if (!valve || valve.classList.contains('open')) return;
   sndWaterChoice();
-  const amount = type === 'quick' ? 8 : 20;
+  valve.classList.add('open');
+  document.getElementById(`vbpl-${idx}`)?.classList.add('flowing');
+  if (idx > 0) document.getElementById(`vbps-${idx - 1}`)?.classList.add('flowing');
+  if (idx === 2) document.getElementById(`vbps-1`)?.classList.add('flowing');
+  vbValvesOpen++;
+  const status = document.getElementById('vb-water-status');
+  if (status) status.textContent = `${vbValvesOpen} / 3 VALVES OPEN`;
+  if (vbValvesOpen >= 3) vbWaterComplete();
+}
+function vbWaterComplete() {
   vbState.waterDone = true;
-  vbState.water += amount;
-
-  // Animate valves and pipes opening one by one
-  let vi = 0;
-  const iv = setInterval(() => {
-    if (vi <= 2) {
-      document.getElementById(`vbv-${vi}`)?.classList.add('open');
-      if (vi > 0) document.getElementById(`vbps-${vi-1}`)?.classList.add('flowing');
-      document.getElementById(`vbpl-${vi}`)?.classList.add('flowing');
-      vi++;
-    } else {
-      document.getElementById(`vbps-1`)?.classList.add('flowing');
-      clearInterval(iv);
-      // Replace choice buttons with outcome
-      const cDiv = document.getElementById('vb-water-choices');
-      if (cDiv) cDiv.innerHTML = `<div class="vb-outcome">+${amount} WATER SECURED<br><span style="font-size:9px;color:var(--green-dim);letter-spacing:1px;">${type==='quick'?'quick patch applied':'full repair complete'}</span></div>`;
-      const tag = document.getElementById('vbs-water');
-      tag.textContent = 'ONLINE'; tag.classList.add('online');
-      const mod = document.getElementById('vbm-water');
-      mod.classList.add('vb-done');
-      vbStepFlash('vbm-water', 'WATER');
-      vbUpdateCommsPanel();
-
-      // Slide to scavenge module
-      setTimeout(() => vbGoToStep(2), 1200);
-    }
-  }, 280);
+  vbState.water += 10;
+  const hint = document.getElementById('vb-water-hint');
+  if (hint) hint.textContent = '+10 WATER SECURED';
+  const status = document.getElementById('vb-water-status');
+  if (status) { status.textContent = 'ALL SYSTEMS FLOWING'; status.style.color = '#00ccff'; }
+  const tag = document.getElementById('vbs-water');
+  tag.textContent = 'ONLINE'; tag.classList.add('online');
+  document.getElementById('vbm-water')?.classList.add('vb-done');
+  vbStepFlash('vbm-water', 'WATER');
+  vbUpdateCommsPanel();
+  setTimeout(() => vbGoToStep(2), 1200);
 }
 
 // ── SCAVENGE ───────────────────────────────────────────────────
@@ -7149,10 +7258,10 @@ function vbUpdateCommsPanel() {
     if (row) row.classList.toggle('met', met);
   });
 
-  // Unlock comms slider when all requirements met
-  const slider = document.getElementById('vb-comms-slider');
-  if (slider && !vbState.commsDone) {
-    slider.classList.toggle('vb-hs-locked', !allMet);
+  // Unlock comms rotary when all requirements met
+  const commsRot = document.getElementById('vb-comms-rotary');
+  if (commsRot && !vbState.commsDone) {
+    commsRot.classList.toggle('vb-hs-locked', !allMet);
   }
 }
 
@@ -7163,18 +7272,18 @@ function vbDoComms() {
 
   vbState.commsDone = true;  // set immediately so game-over check is safe
 
-  const commsSl = document.getElementById('vb-comms-slider');
-  const commsSlLabel = commsSl?.querySelector('.vb-hs-label');
-  if (commsSl) commsSl.classList.add('vb-hs-locked');
+  const commsRot = document.getElementById('vb-comms-rotary');
+  const commsLabel = commsRot?.querySelector('.vb-rotary-label');
+  if (commsRot) commsRot.classList.add('vb-hs-locked');
 
-  // Animated assembly countdown shown in slider label
+  // Animated assembly countdown shown in rotary label
   let tick = 0;
   const seq = ['ASSEMBLING ···','ASSEMBLING ·· ','ASSEMBLING ·  ','ASSEMBLING    '];
-  const iv = setInterval(() => { if (commsSlLabel) commsSlLabel.textContent = seq[tick++ % seq.length]; }, 280);
+  const iv = setInterval(() => { if (commsLabel) commsLabel.textContent = seq[tick++ % seq.length]; }, 280);
 
   setTimeout(() => {
     clearInterval(iv);
-    if (commsSlLabel) commsSlLabel.textContent = '▣ COMMS UNIT: ONLINE';
+    if (commsLabel) commsLabel.textContent = '▣ COMMS UNIT: ONLINE';
     const tag = document.getElementById('vbs-comms');
     tag.textContent = 'ONLINE'; tag.classList.add('online');
     const mod = document.getElementById('vbm-comms');
