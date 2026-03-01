@@ -2069,6 +2069,48 @@ body::before {
   #sboot-lever-track { height: 200px; }
   #sboot-scale { height: 200px; }
 }
+
+/* ── Dev Panel ──────────────────────────────────────────────────── */
+#dev-panel {
+  position: fixed;
+  right: 0;
+  width: 270px;
+  background: rgba(8,0,0,0.97);
+  border: 1px solid #660000;
+  border-top: none;
+  border-right: none;
+  z-index: 2000;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: #cc2222;
+  padding: 10px 12px;
+  box-shadow: -4px 4px 20px rgba(0,0,0,0.8);
+}
+#dev-panel-title {
+  font-size: 11px; letter-spacing: 3px; color: #ff5555;
+  margin-bottom: 8px; padding-bottom: 6px;
+  border-bottom: 1px solid #440000;
+}
+.dev-skip-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  margin-bottom: 10px;
+}
+.dev-skip-btn {
+  background: rgba(50,0,0,0.6); border: 1px solid #550000;
+  color: #cc2222; font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 1px; padding: 5px 4px;
+  cursor: pointer; text-align: center; transition: all 0.12s;
+}
+.dev-skip-btn:hover { background: rgba(110,0,0,0.6); color: #ff5555; border-color: #880000; }
+.dev-skip-btn.wide  { grid-column: span 2; }
+#dev-g-label {
+  font-size: 9px; letter-spacing: 2px; color: #881111; margin-bottom: 4px;
+}
+#dev-g-state {
+  font-size: 9px; color: #993333; max-height: 200px; overflow-y: auto;
+  margin: 0; white-space: pre; line-height: 1.5;
+  border: 1px solid #330000; padding: 5px; background: rgba(0,0,0,0.4);
+}
 </style>
 </head>
 <body>
@@ -2083,8 +2125,22 @@ body::before {
       <div class="stat">TURN <span class="val" id="s-turn">--</span></div>
     </div>
     <div id="phase-tag">INITIALISING</div>
-    <button id="dev-bypass-btn" onclick="devSkipToVaultBoot()" style="background:rgba(80,0,0,0.5);border:1px solid #660000;color:#cc2222;font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 7px;cursor:pointer;letter-spacing:1px;flex-shrink:0;" title="DEV — skip to vault boot">TEST</button>
+    <button id="dev-bypass-btn" onclick="toggleDevPanel()" style="background:rgba(80,0,0,0.5);border:1px solid #660000;color:#cc2222;font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 7px;cursor:pointer;letter-spacing:1px;flex-shrink:0;" title="DEV — toggle dev panel">TEST</button>
     <button id="menu-btn" onclick="toggleMenu()">[ MENU ]</button>
+  </div>
+
+  <!-- DEV PANEL (toggled by TEST button) -->
+  <div id="dev-panel" style="display:none">
+    <div id="dev-panel-title">── DEV PANEL ──</div>
+    <div class="dev-skip-grid">
+      <button class="dev-skip-btn" onclick="devSkipToSplash()">SPLASH</button>
+      <button class="dev-skip-btn" onclick="devSkipToCharCreate()">CHAR CREATE</button>
+      <button class="dev-skip-btn" onclick="devSkipToVaultBoot()">VAULT BOOT</button>
+      <button class="dev-skip-btn" onclick="devSkipToScannerBoot()">SCANNER</button>
+      <button class="dev-skip-btn wide" onclick="devSkipToMap()">HEX MAP (phase 3)</button>
+    </div>
+    <div id="dev-g-label">── G STATE ──</div>
+    <pre id="dev-g-state">—</pre>
   </div>
 
   <!-- SPLASH / REBOOT SCREEN -->
@@ -6507,74 +6563,139 @@ function restoreButtons() {
   }
 }
 
-// ── DEV BYPASS — remove before ship ──
+// ── DEV BYPASS — remove before ship ──────────────────────────────
 let DEV_SKIP = false;
+let _devPanelTimer = null;
 
-function devSkipToMap() {
+// ── Dev panel toggle ─────────────────────────────────────────────
+function toggleDevPanel() {
+  const panel = document.getElementById('dev-panel');
+  const hh = document.getElementById('header').offsetHeight;
+  panel.style.top = hh + 'px';
+  const opening = panel.style.display === 'none';
+  panel.style.display = opening ? 'block' : 'none';
+  if (opening) {
+    _devRefresh();
+    _devPanelTimer = setInterval(_devRefresh, 1000);
+  } else {
+    clearInterval(_devPanelTimer); _devPanelTimer = null;
+  }
+}
+
+function _devClose() {
+  document.getElementById('dev-panel').style.display = 'none';
+  clearInterval(_devPanelTimer); _devPanelTimer = null;
+}
+
+function _devRefresh() {
+  const el = document.getElementById('dev-g-state');
+  if (!el) return;
+  const snap = {
+    phase:      G.phase,
+    turn:       G.turn,
+    power:      G.power,
+    food:       G.food,
+    water:      G.water,
+    metals:     G.metals,
+    wood:       G.wood,
+    population: G.population,
+    scanRange:  G.scanRange,
+    mapUnlocked:G.mapUnlocked,
+    mapBooting: typeof mapBooting !== 'undefined' ? mapBooting : '?',
+    systems:    G.systems,
+    discoveries:G.discoveries,
+    people:     G.people.map(p => `${p.name} [${p.role}] ${p.status}`),
+    audioCtx:   (typeof audioCtx !== 'undefined' && audioCtx) ? audioCtx.state : 'none',
+  };
+  el.textContent = JSON.stringify(snap, null, 2);
+}
+
+// ── Dev skip helpers ─────────────────────────────────────────────
+function _devReset() {
   DEV_SKIP = true;
-  typingQueue.length = 0;
-  isTyping = false;
-  queueDrainCallbacks.length = 0;
-  document.getElementById('char-create').style.display = 'none';
-  document.getElementById('splash').style.display = 'none';
-  document.getElementById('vault-boot').style.display = 'none';
-  G.phase = 3; G.power = 80; G.food = 8; G.water = 15; G.metals = 0; G.wood = 0;
-  G.population = 1; G.turn = 1; G.scanRange = 1;
-  G.enemyUnits = []; G.nextEnemyId = 1;
-  G.systems = { power:true, water:true, comms:true, scanner:true, fabricator:false };
-  // Keep player char if already created, otherwise generate placeholder
-  const player = G.people.find(p=>p.isPlayer) || (() => {
-    const p = generatePerson('scout');
-    p.isPlayer = true; p.id = 'player_0';
-    return p;
-  })();
-  G.people = [player];
-  G.people.forEach(p => { p.arrived = 0; p.status = 'vault'; p.actionsLeft = 1; p.movesLeft = 1; });
-  G.population = G.people.length;
-  generateWorld();
-  revealAround(0, 0, G.scanRange);
-  unlockMap(); drawMap(); updateHUD(); setTimeout(showMapTutorial, 600);
+  typingQueue.length = 0; isTyping = false; queueDrainCallbacks.length = 0;
+  ['splash','char-create','vault-boot','scanner-boot'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  _devClose();
+  initAudio();
+}
+
+function devSkipToSplash() {
+  _devReset();
+  G.phase = 0;
   document.getElementById('log').innerHTML = '';
-  log('── DEV MODE — SKIPPING INTRO ──', 'alert');
-  log(`vault systems online. map active. 1 survivor registered.`, 'sys', 200);
-  logGap();
-  setActions([
-    { id:'roster',  label:'[ ROSTER ]',          style:'',       action: ()=>showPeoplePanel(false) },
-    { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
-  ]);
-  document.getElementById('dev-bypass-btn').style.display='none';
+  startGame();
+}
+
+function devSkipToCharCreate() {
+  _devReset();
+  G.phase = 0;
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('char-create').style.display = 'flex';
 }
 
 function devSkipToVaultBoot() {
-  DEV_SKIP = true;
-  typingQueue.length = 0;
-  isTyping = false;
-  queueDrainCallbacks.length = 0;
-  // Hide all other screens
-  ['char-create','splash','scanner-boot'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  document.getElementById('vault-boot').style.display = 'none';
-  // Minimal game state for vault-boot
+  _devReset();
   G.phase = 1; G.power = 0; G.food = 0; G.water = 0; G.metals = 0; G.wood = 0;
   G.population = 1; G.turn = 1; G.scanRange = 1;
   G.enemyUnits = []; G.nextEnemyId = 1;
   G.systems = { power:false, water:false, comms:false, scanner:false, fabricator:false };
   G.mapUnlocked = false;
   const player = G.people.find(p=>p.isPlayer) || (() => {
-    const p = generatePerson('scout');
-    p.isPlayer = true; p.id = 'player_0';
-    G.people.push(p);
+    const p = generatePerson('scout'); p.isPlayer = true; p.id = 'player_0';
+    G.people.push(p); return p;
+  })();
+  G.people = [player];
+  G.people.forEach(p => { p.arrived=0; p.status='vault'; p.actionsLeft=1; p.movesLeft=1; });
+  G.population = G.people.length;
+  document.getElementById('log').innerHTML = '';
+  showVaultBoot();
+}
+
+function devSkipToScannerBoot() {
+  _devReset();
+  G.phase = 1; G.power = 80; G.food = 8; G.water = 15; G.metals = 5; G.wood = 0;
+  G.population = 1; G.turn = 1; G.scanRange = 1;
+  G.enemyUnits = []; G.nextEnemyId = 1;
+  G.systems = { power:true, water:true, comms:true, scanner:false, fabricator:false };
+  G.mapUnlocked = false;
+  const player = G.people.find(p=>p.isPlayer) || (() => {
+    const p = generatePerson('scout'); p.isPlayer = true; p.id = 'player_0';
+    G.people.push(p); return p;
+  })();
+  G.people = [player];
+  G.people.forEach(p => { p.arrived=0; p.status='vault'; p.actionsLeft=1; p.movesLeft=1; });
+  G.population = G.people.length;
+  document.getElementById('log').innerHTML = '';
+  showScannerBoot();
+}
+
+function devSkipToMap() {
+  _devReset();
+  G.phase = 3; G.power = 80; G.food = 8; G.water = 15; G.metals = 10; G.wood = 5;
+  G.population = 1; G.turn = 1; G.scanRange = 1;
+  G.enemyUnits = []; G.nextEnemyId = 1;
+  G.systems = { power:true, water:true, comms:true, scanner:true, fabricator:false };
+  const player = G.people.find(p=>p.isPlayer) || (() => {
+    const p = generatePerson('scout'); p.isPlayer = true; p.id = 'player_0';
     return p;
   })();
   G.people = [player];
-  G.people.forEach(p => { p.arrived = 0; p.status = 'vault'; p.actionsLeft = 1; p.movesLeft = 1; });
+  G.people.forEach(p => { p.arrived=0; p.status='vault'; p.actionsLeft=1; p.movesLeft=1; });
   G.population = G.people.length;
+  generateWorld();
+  revealAround(0, 0, G.scanRange);
+  unlockMap(); drawMap(); updateHUD();
   document.getElementById('log').innerHTML = '';
-  // Kick off vault-boot
-  initAudio();
-  showVaultBoot();
+  log('── DEV MODE — HEX MAP ──', 'alert');
+  log('vault systems online. map active.', 'sys', 200);
+  logGap();
+  setActions([
+    { id:'roster',  label:'[ ROSTER ]', style:'',        action: ()=>showPeoplePanel(false) },
+    { id:'endturn', label:'[ END DAY ]', style:'primary', action: nextTurn },
+  ]);
+  setTimeout(showMapTutorial, 600);
 }
 
 function resumeFromSave() {
