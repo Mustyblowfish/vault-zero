@@ -2891,21 +2891,21 @@ const STORY_BEATS = [
     { type:'sys', text:'VAULT ZERO OPERATING SYSTEM v2.31.7' },
     { type:'sys', text:'INITIALISING CORE PROCESSES...' },
     { type:'gap' },
-    { type:'story', text:'darkness.', delay:400 },
-    { type:'story', text:'then: a flicker.', delay:800 },
-    { type:'story', text:'then: numbers.', delay:1200 },
-    { type:'gap', delay:1500 },
-    { type:'sys', text:'SELF-DIAGNOSTIC RUNNING...', delay:1700 },
-    { type:'sys', text:'MEMORY CORE: INTACT', delay:2100 },
-    { type:'sys', text:'SEED ARCHIVE: INTACT — 12,847 SPECIES', delay:2400 },
-    { type:'sys', text:'LIFE SUPPORT: CRITICAL', delay:2700 },
-    { type:'sys', text:'POWER RESERVES: 3%', delay:3000 },
-    { type:'gap', delay:3300 },
-    { type:'story', text:'I am ARIA. I have been dormant for an unknown period.', delay:3600 },
-    { type:'story', text:'The vault is intact. The seeds are safe.', delay:4200 },
-    { type:'story', text:'But the power reserves won\'t last.', delay:4700 },
-    { type:'story', text:'I need to act.', delay:5100 },
-    { type:'action', text:'> SYSTEM READY. AWAITING INPUT.', delay:5300 },
+    { type:'story', text:'darkness.', delay:250 },
+    { type:'story', text:'then: a flicker.', delay:480 },
+    { type:'story', text:'then: numbers.', delay:710 },
+    { type:'gap', delay:880 },
+    { type:'sys', text:'SELF-DIAGNOSTIC RUNNING...', delay:1020 },
+    { type:'sys', text:'MEMORY CORE: INTACT', delay:1250 },
+    { type:'sys', text:'SEED ARCHIVE: INTACT — 12,847 SPECIES', delay:1450 },
+    { type:'sys', text:'LIFE SUPPORT: CRITICAL', delay:1650 },
+    { type:'sys', text:'POWER RESERVES: 3%', delay:1850 },
+    { type:'gap', delay:2000 },
+    { type:'story', text:'I am ARIA. I have been dormant for an unknown period.', delay:2180 },
+    { type:'story', text:'The vault is intact. The seeds are safe.', delay:2480 },
+    { type:'story', text:'But the power reserves won\'t last.', delay:2730 },
+    { type:'story', text:'I need to act.', delay:2930 },
+    { type:'action', text:'> SYSTEM READY. AWAITING INPUT.', delay:3080 },
   ]
 ];
 
@@ -3263,11 +3263,11 @@ function restorePower() {
   updateHUD();
   logGap();
   log('[ EXECUTING: EMERGENCY POWER REROUTE ]', 'action');
-  log('rerouting auxillary cells...', 'sys', 200);
-  log('power grid: ONLINE — 12%', 'sys', 600);
+  log('rerouting auxillary cells...', 'sys', 150);
+  log('power grid: ONLINE — 12%', 'sys', 380);
   logGap();
-  log('The lights flicker on. Dim. Green-tinged.', 'story', 900);
-  log('The vault breathes again.', 'story', 1400);
+  log('The lights flicker on. Dim. Green-tinged.', 'story', 580);
+  log('The vault breathes again.', 'story', 880);
   logGap();
 
   setTimeout(() => {
@@ -3277,7 +3277,7 @@ function restorePower() {
       { id:'comms',  label:'[ RESTORE COMMS ]',  style:'', action: restoreComms },
     ]);
     log('NEXT: restore critical systems.', 'sys', 300);
-  }, 2000);
+  }, 1200);
 }
 
 function restoreWater() {
@@ -3298,15 +3298,15 @@ function restoreComms() {
   G.systems.comms = true;
   G.power += 6; updateHUD();
   log('[ EXECUTING: COMMS ARRAY BOOT ]', 'action');
-  log('antenna array: ONLINE', 'sys', 300);
-  log('scanning frequencies...', 'sys', 600);
-  log('no active signals detected.', 'sys', 900);
+  log('antenna array: ONLINE', 'sys', 200);
+  log('scanning frequencies...', 'sys', 420);
+  log('no active signals detected.', 'sys', 650);
   logGap();
-  log('silence.', 'story', 1100);
-  log('static.', 'story', 1500);
-  log('then — fragments. old broadcasts. buried in noise.', 'story', 2000);
+  log('silence.', 'story', 820);
+  log('static.', 'story', 1060);
+  log('then — fragments. old broadcasts. buried in noise.', 'story', 1340);
   logGap();
-  setTimeout(() => showTransmission(0), 2800);
+  setTimeout(() => showTransmission(0), 1800);
   setCooldown('comms', 2000);
   buttons['comms'].textContent = '[ COMMS: ONLINE ]';
   checkSystemsProgress();
@@ -3347,24 +3347,24 @@ function bootScanner() {
   updateHUD();
 
   log('[ EXECUTING: SURFACE SCANNER BOOT ]', 'action');
-  log('calibrating... calibrating...', 'sys', 400);
-  log('ground-penetrating array: ONLINE', 'sys', 900);
-  log('environmental sensors: ACTIVE', 'sys', 1200);
+  log('calibrating... calibrating...', 'sys', 300);
+  log('ground-penetrating array: ONLINE', 'sys', 600);
+  log('environmental sensors: ACTIVE', 'sys', 850);
   logGap();
 
   setTimeout(() => {
     log('the screen fills with static.', 'story', 0);
-    log('then shapes. outlines. a world I can almost recognise.', 'story', 600);
-    log('dead. silent. but there.', 'story', 1300);
+    log('then shapes. outlines. a world I can almost recognise.', 'story', 420);
+    log('dead. silent. but there.', 'story', 850);
     logGap();
-  }, 1500);
+  }, 1000);
 
   setTimeout(() => {
     unlockMap();
     generateWorld();
-    log('SURFACE SCAN ONLINE — range: 3 hexes', 'alert', 300);
+    log('SURFACE SCAN ONLINE — range: 3 hexes', 'alert', 200);
     logGap();
-    log('explore the surface. look for signs of life.', 'sys', 700);
+    log('explore the surface. look for signs of life.', 'sys', 500);
     logGap();
 
     setTimeout(() => {
@@ -3373,8 +3373,8 @@ function bootScanner() {
         { id:'roster',  label:'[ ROSTER ]',          style:'',       action: ()=>showPeoplePanel(false) },
         { id:'endturn', label:'[ END DAY ]',      style:'primary',action: nextTurn },
       ]);
-    }, 1300);
-  }, 3000);
+    }, 900);
+  }, 2000);
 }
 
 function showMapTutorial() {
