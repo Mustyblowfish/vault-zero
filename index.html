@@ -3450,7 +3450,7 @@ function drawFacePortrait(canvas, name, role) {
   // No neck — head fills the frame
 }
 
-const MAX_FATIGUE = 5; // turns in the field before a character must rest
+const MAX_FATIGUE = 3; // turns in the field before a character must rest
 
 // ── Enemy unit definitions ──
 const ENEMY_TYPES = {
@@ -4535,20 +4535,20 @@ const ENCOUNTER_POOLS = {
       choices:[
         { label:'CLIMB UP',
           beats:['A waterproof case strapped to the planks. Inside — dried meat, a hunting knife, a hand-drawn map.'],
-          outcome:{ food:6, metals:2, log:'found a hunter\'s stash in a tree stand.' } },
+          outcome:{ food:4, metals:1, log:'found a hunter\'s stash in a tree stand.' } },
         { label:'WAIT AND WATCH',
           beats:['An hour passes. No one comes. You take what\'s there.'],
-          outcome:{ food:4, log:'waited, then took the abandoned hunter\'s cache.' } },
+          outcome:{ food:3, log:'waited, then took the abandoned hunter\'s cache.' } },
       ]},
     { id:'f_grove',
       text:['A clearing. Wild fruit trees — apple, pear.','More than expected.','Something has been eating here too.'],
       choices:[
         { label:'HARVEST QUICKLY',
           beats:['Arms full. Back before whatever it is returns.'],
-          outcome:{ food:10, log:'harvested a wild fruit grove.' } },
+          outcome:{ food:6, log:'harvested a wild fruit grove.' } },
         { label:'SET A SNARE AND WAIT',
           beats:['A large dog — lean but healthy. It watches you. You let it go and take the fruit instead.'],
-          outcome:{ food:8, log:'harvested fruit. left a wild dog alone.' } },
+          outcome:{ food:5, log:'harvested fruit. left a wild dog alone.' } },
       ]},
   ],
   WATER: [
@@ -4557,20 +4557,20 @@ const ENCOUNTER_POOLS = {
       choices:[
         { label:'SEARCH THE BOAT',
           beats:['A tackle box. Fishing line, hooks, still good. Under the seat — two litres of sealed water.'],
-          outcome:{ water:8, food:3, log:'found supplies in a boat at the old dock.' } },
+          outcome:{ water:5, food:2, log:'found supplies in a boat at the old dock.' } },
         { label:'FILL CONTAINERS',
           beats:['The water is surprisingly clear this deep. Enough to carry back.'],
-          outcome:{ water:12, log:'collected clean water from the reservoir.' } },
+          outcome:{ water:8, log:'collected clean water from the reservoir.' } },
       ]},
     { id:'wa_pump',
       text:['A pump house. Old, but the mechanism is intact.','With some work this could feed the vault.'],
       choices:[
         { label:'REPAIR THE PUMP',
           beats:['Two hours of work. Bleeding knuckles. But it flows. Clean, cold water.'],
-          outcome:{ water:15, log:'repaired a pump house. major water source found.' } },
+          outcome:{ water:10, log:'repaired a pump house. major water source found.' } },
         { label:'COLLECT AND GO',
           beats:['No time to fix it. Collect what you can carry.'],
-          outcome:{ water:6, log:'collected water and marked the pump house for later.' } },
+          outcome:{ water:4, log:'collected water and marked the pump house for later.' } },
       ]},
   ],
   GRASS: [
@@ -4582,7 +4582,7 @@ const ENCOUNTER_POOLS = {
           outcome:{ survivor:true, log:'followed a smoke signal. found survivors.' } },
         { label:'OBSERVE FIRST',
           beats:['You watch for an hour. Nothing threatening. They are glad you were careful — trust earned.'],
-          outcome:{ survivor:true, food:4, log:'cautiously approached a signal fire. survivors found.' } },
+          outcome:{ survivor:true, food:2, log:'cautiously approached a signal fire. survivors found.' } },
         { label:'IGNORE IT', beats:['Could be a trap. You keep moving.'], outcome:{ nothing:true } },
       ]},
     { id:'g_crops',
@@ -4590,10 +4590,10 @@ const ENCOUNTER_POOLS = {
       choices:[
         { label:'HARVEST EVERYTHING',
           beats:['Armfuls of grain. Dusty but edible.'],
-          outcome:{ food:9, log:'harvested wild crops from an overgrown field.' } },
+          outcome:{ food:6, log:'harvested wild crops from an overgrown field.' } },
         { label:'TAKE HALF, LEAVE HALF',
           beats:['Leave some to reseed. This could be a supply point for months.'],
-          outcome:{ food:5, log:'partially harvested a wild crop field. left it to regrow.' } },
+          outcome:{ food:3, log:'partially harvested a wild crop field. left it to regrow.' } },
       ]},
   ],
   MOUNTAIN: [
@@ -4602,10 +4602,10 @@ const ENCOUNTER_POOLS = {
       choices:[
         { label:'GO IN',
           beats:['Fifty metres in — an untouched seam. You chip out what you can carry. Your back aches for days.'],
-          outcome:{ metals:8, wound:true, log:'entered an old mine. rich ore vein found.' } },
+          outcome:{ metals:5, wound:true, log:'entered an old mine. rich ore vein found.' } },
         { label:'CHECK THE EQUIPMENT SHED',
           beats:['Old tools, but solid steel. Worth taking.'],
-          outcome:{ metals:4, wood:2, log:'salvaged a mine equipment shed.' } },
+          outcome:{ metals:3, wood:1, log:'salvaged a mine equipment shed.' } },
         { label:'MARK IT AND LEAVE',
           beats:['This will be here when we are better equipped.'],
           outcome:{ nothing:true } },
@@ -4620,7 +4620,7 @@ const ENCOUNTER_POOLS = {
           outcome:{ survivor:true, log:'unsealed a bunker. survivors found inside.' } },
         { label:'CALL THROUGH THE DOOR',
           beats:['Silence. Then a voice — weak but alive. You work faster.'],
-          outcome:{ survivor:true, food:6, log:'opened a sealed bunker. survivors and supplies inside.' } },
+          outcome:{ survivor:true, food:3, log:'opened a sealed bunker. survivors and supplies inside.' } },
         { label:'LEAVE IT SEALED', beats:['Not your business. You keep moving.'], outcome:{ nothing:true } },
       ]},
   ],
@@ -6727,12 +6727,12 @@ let vbCurrentStep = 0;
 
 // Room definitions — id, display name, icon, yields, survivor flag
 const VB_ROOMS = [
-  { id:'barracks', label:'BARRACKS',    icon:'⊓', food:3, metal:1, water:0, wood:0, survivor:false },
-  { id:'storage',  label:'STORAGE',     icon:'▦', food:0, metal:2, water:0, wood:1, survivor:false },
-  { id:'medical',  label:'MEDICAL BAY', icon:'✚', food:2, metal:0, water:4, wood:0, survivor:false },
-  { id:'mess',     label:'MESS HALL',   icon:'▽', food:5, metal:0, water:2, wood:0, survivor:false },
-  { id:'armory',   label:'ARMORY',      icon:'⚔', food:0, metal:4, water:0, wood:0, survivor:false },
-  { id:'maint',    label:'MAINTENANCE', icon:'⚙', food:0, metal:3, water:0, wood:2, survivor:false },
+  { id:'barracks', label:'BARRACKS',    icon:'⊓', food:2, metal:1, water:0, wood:0, survivor:false },
+  { id:'storage',  label:'STORAGE',     icon:'▦', food:0, metal:1, water:0, wood:1, survivor:false },
+  { id:'medical',  label:'MEDICAL BAY', icon:'✚', food:1, metal:0, water:3, wood:0, survivor:false },
+  { id:'mess',     label:'MESS HALL',   icon:'▽', food:3, metal:0, water:1, wood:0, survivor:false },
+  { id:'armory',   label:'ARMORY',      icon:'⚔', food:0, metal:3, water:0, wood:0, survivor:false },
+  { id:'maint',    label:'MAINTENANCE', icon:'⚙', food:0, metal:2, water:0, wood:2, survivor:false },
 ];
 
 let vbBreakersOn = 0;
