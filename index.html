@@ -6483,8 +6483,7 @@ function openHexInfo(h) {
       btn.className = 'btn';
       btn.style.cssText='font-size:11px;text-align:left;padding:7px 10px;margin-top:3px;';
       btn.innerHTML = `${ad.icon} ${ad.label}`;
-      // After acting, refresh the panel so the MOVE button can appear
-      btn.addEventListener('click', () => { performHexAction(personHere, h, actKey); openHexInfo(h); });
+      btn.addEventListener('click', () => { performHexAction(personHere, h, actKey); closeHexInfo(); });
       acts.appendChild(btn);
     });
   }
