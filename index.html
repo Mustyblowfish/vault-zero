@@ -1345,6 +1345,117 @@ body::before {
 .vb-module.vb-done::before { opacity: 1; }
 .vb-module.vb-done { background: #010d03; }
 
+/* ── "Do this next" pulsing outline ── */
+.vb-module.vb-next { animation: vb-next-glow 1.8s ease-in-out infinite; }
+@keyframes vb-next-glow {
+  0%,100% { box-shadow: none; }
+  50%      { box-shadow: inset 0 0 0 2px var(--mc, var(--green)), 0 0 22px rgba(0,255,65,0.07); }
+}
+
+/* ── Step-complete flash ── */
+.vb-step-flash {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  background: rgba(1,9,1,0.75); pointer-events: none;
+  animation: vbFlashFade 1.4s ease-out forwards;
+}
+.vb-step-flash span { font-size: 18px; letter-spacing: 4px; color: var(--mc, var(--green)); }
+.vb-step-flash small { font-size: 10px; letter-spacing: 3px; color: var(--mc, var(--green)); opacity: 0.7; }
+@keyframes vbFlashFade { 0%{opacity:0} 20%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+
+/* ── Module lock cover ── */
+.vb-lock-cover {
+  position: absolute; inset: 0; z-index: 10;
+  background: rgba(1,6,1,0.90);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+  transition: opacity 0.55s, visibility 0.55s;
+}
+.vb-lock-cover.vb-unlocking { opacity: 0; pointer-events: none; }
+.vb-lock-cover.vb-unlocked  { display: none; }
+.vb-lk-icon { font-size: 30px; color: rgba(0,60,0,0.5); }
+.vb-lk-msg  {
+  font-size: 10px; letter-spacing: 2px;
+  color: rgba(0,130,0,0.5); text-align: center; line-height: 1.9;
+}
+
+/* ── Intro briefing overlay ── */
+#vb-intro {
+  position: absolute; inset: 0; z-index: 60;
+  background: #010601;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 20px 22px 24px; gap: 11px;
+  overflow-y: auto;
+}
+#vb-intro.vbi-gone { display: none !important; }
+.vbi-alert {
+  font-size: 10px; letter-spacing: 4px; color: var(--red);
+  border: 1px solid rgba(255,48,48,0.35); padding: 3px 16px;
+  text-align: center; animation: action-panel-pulse 1.2s ease-in-out infinite;
+}
+.vbi-title {
+  font-size: 20px; letter-spacing: 3px; color: var(--amber);
+  text-align: center; text-shadow: 0 0 28px rgba(255,176,0,0.4);
+  line-height: 1.25;
+}
+.vbi-sub {
+  font-size: 11px; color: var(--green-dim); letter-spacing: 1px;
+  text-align: center; line-height: 1.9; max-width: 340px;
+}
+.vbi-budget {
+  display: flex; flex-direction: column; align-items: center;
+  border: 1px solid rgba(255,176,0,0.2); padding: 8px 32px; gap: 2px;
+}
+.vbi-budget-n { font-size: 40px; color: var(--amber); letter-spacing: 2px; line-height: 1; }
+.vbi-budget-l { font-size: 9px; color: var(--green-dark); letter-spacing: 3px; }
+.vbi-steps {
+  width: 100%; max-width: 360px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.vbi-step {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 7px 10px 7px 9px;
+  border-left: 3px solid var(--sc, var(--green-dark));
+  background: rgba(255,255,255,0.018);
+}
+.vbi-step-ic   { font-size: 16px; flex-shrink: 0; margin-top: 2px; }
+.vbi-step-body { display: flex; flex-direction: column; gap: 3px; }
+.vbi-step-t    { font-size: 12px; letter-spacing: 2px; color: var(--sc, var(--green)); }
+.vbi-step-d    { font-size: 10px; letter-spacing: 1px; color: var(--green-dark); line-height: 1.5; }
+.vbi-step-pwr  { --sc: #ffb000; }
+.vbi-step-wat  { --sc: #00ccff; }
+.vbi-step-scv  { --sc: #00dd55; }
+.vbi-step-com  { --sc: #cc55ff; }
+#vbi-start {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 15px; letter-spacing: 4px; padding: 14px 0;
+  width: 100%; max-width: 360px; cursor: pointer; margin-top: 4px;
+  background: rgba(255,176,0,0.06); border: 1px solid var(--amber); color: var(--amber);
+  transition: background 0.2s;
+  animation: vb-amber-glow 1.3s ease-in-out infinite;
+}
+#vbi-start:hover { background: rgba(255,176,0,0.16); }
+
+/* ── Module instruction line ── */
+.vb-instr {
+  font-size: 11px; letter-spacing: 1px; color: var(--mc, var(--green-dim));
+  opacity: 0.75; line-height: 1.6; margin-bottom: 2px;
+}
+
+/* ── Mobile: stack modules in a single column ── */
+@media (max-width: 600px) {
+  #vb-tasks {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, auto);
+    overflow-y: auto;
+  }
+  .vb-module { min-height: 210px; }
+  .vbm-title { font-size: 12px; }
+  .vb-instr  { font-size: 12px; }
+}
+
 /* Module header */
 .vbm-hdr {
   display: flex; align-items: center; gap: 8px;
@@ -1597,8 +1708,8 @@ body::before {
 
 /* ── outcome flash ── */
 .vb-outcome {
-  font-size: 9px; letter-spacing: 2px;
-  color: var(--green); text-align: center; padding: 4px 0;
+  font-size: 13px; letter-spacing: 2px;
+  color: var(--green); text-align: center; padding: 8px 0;
   animation: vb-fadein 0.3s ease;
 }
 @keyframes vb-fadein { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
@@ -1722,16 +1833,57 @@ body::before {
        ═══════════════════════════════════════════════════════ -->
   <div id="vault-boot" style="display:none">
 
+    <!-- ── INTRO BRIEFING OVERLAY (dismissed by player) ── -->
+    <div id="vb-intro">
+      <div class="vbi-alert">⚠ &nbsp; EMERGENCY BOOT SEQUENCE INITIATED</div>
+      <div class="vbi-title">VAULT ZERO<br>SYSTEMS CRITICAL</div>
+      <div class="vbi-sub">CO₂ scrubbers are failing. Restore all four vault systems before your oxygen runs out. Each action costs O₂ — spend it wisely.</div>
+      <div class="vbi-budget">
+        <div class="vbi-budget-n">24</div>
+        <div class="vbi-budget-l">ACTIONS BEFORE O₂ DEPLETES</div>
+      </div>
+      <div class="vbi-steps">
+        <div class="vbi-step vbi-step-pwr">
+          <span class="vbi-step-ic">⚡</span>
+          <div class="vbi-step-body">
+            <span class="vbi-step-t">STEP 1 &nbsp;·&nbsp; POWER GRID</span>
+            <span class="vbi-step-d">Tap each of the 6 breaker switches to flip ON, then press ENGAGE MAIN BREAKER. Costs ~7 actions total.</span>
+          </div>
+        </div>
+        <div class="vbi-step vbi-step-wat">
+          <span class="vbi-step-ic">◈</span>
+          <div class="vbi-step-body">
+            <span class="vbi-step-t">STEP 2 &nbsp;·&nbsp; WATER RECLAMATION</span>
+            <span class="vbi-step-d">Choose QUICK PATCH (2 actions, +8 water) or FULL REPAIR (5 actions, +20 water). Unlocks after power.</span>
+          </div>
+        </div>
+        <div class="vbi-step vbi-step-scv">
+          <span class="vbi-step-ic">⊞</span>
+          <div class="vbi-step-body">
+            <span class="vbi-step-t">STEP 3 &nbsp;·&nbsp; SCAVENGE VAULT</span>
+            <span class="vbi-step-d">Tap room doors to search for supplies. You need at least 8 METAL to build the comms unit. 2 actions per room.</span>
+          </div>
+        </div>
+        <div class="vbi-step vbi-step-com">
+          <span class="vbi-step-ic">▣</span>
+          <div class="vbi-step-body">
+            <span class="vbi-step-t">STEP 4 &nbsp;·&nbsp; COMMS UNIT</span>
+            <span class="vbi-step-d">Once power + water are online and you have 8 metal, press ASSEMBLE UNIT. This completes the boot.</span>
+          </div>
+        </div>
+      </div>
+      <button id="vbi-start" onclick="vbStartSequence()">[ BEGIN SEQUENCE ]</button>
+    </div>
+
     <!-- O2 header bar -->
     <div id="vb-header">
       <div id="vb-title">⚠ VAULT ZERO — EMERGENCY BOOT REQUIRED</div>
       <div id="vb-o2-row">
-        <span id="vb-o2-label">OXYGEN:</span>
+        <span id="vb-o2-label">O₂ ACTIONS:</span>
         <div id="vb-o2-track"><div id="vb-o2-fill"></div></div>
         <span id="vb-o2-num">24</span>
-        <span style="font-size:8px;color:var(--green-dark);letter-spacing:1px;"> ACT</span>
       </div>
-      <div id="vb-status-msg">CO₂ scrubbers failing — bring systems online before oxygen depletes.</div>
+      <div id="vb-status-msg">press BEGIN SEQUENCE to start the emergency boot procedure.</div>
     </div>
 
     <!-- Resource strip -->
@@ -1745,38 +1897,29 @@ body::before {
     <!-- 2×2 task modules -->
     <div id="vb-tasks">
 
-      <!-- ── POWER MODULE ── -->
+      <!-- ── STEP 1: POWER MODULE ── -->
       <div class="vb-module vb-module-power" id="vbm-power">
         <div class="vbm-hdr">
           <span class="vbm-icon">⚡</span>
-          <span class="vbm-title">POWER GRID</span>
+          <span class="vbm-title">1 · POWER GRID</span>
           <span class="vbm-tag" id="vbs-power">OFFLINE</span>
         </div>
-        <div class="vb-cr">
-          <span class="vb-cr-cost">COST: 7 ACTIONS</span>
-          <span class="vb-cr-sep">·</span>
-          <span class="vb-cr-reward">ENABLES WATER &amp; COMMS</span>
-        </div>
         <div class="vbm-body">
-          <div id="vb-power-hint">flip all 6 circuit breakers, then engage the main bus.</div>
+          <div class="vb-instr" id="vb-power-hint">Tap each switch → flip all 6 to ON → press ENGAGE</div>
           <div id="vb-breaker-grid"><!-- built by JS --></div>
           <button id="vb-engage-btn" disabled onclick="vbEngagePower()">[ ENGAGE MAIN BREAKER ]</button>
         </div>
       </div>
 
-      <!-- ── WATER MODULE ── -->
+      <!-- ── STEP 2: WATER MODULE ── -->
       <div class="vb-module vb-module-water" id="vbm-water">
         <div class="vbm-hdr">
           <span class="vbm-icon">◈</span>
-          <span class="vbm-title">WATER RECLAMATION</span>
+          <span class="vbm-title">2 · WATER RECLAMATION</span>
           <span class="vbm-tag" id="vbs-water">OFFLINE</span>
         </div>
-        <div class="vb-cr">
-          <span class="vb-cr-cost">COST: 2 OR 5 ACTIONS</span>
-          <span class="vb-cr-sep">·</span>
-          <span class="vb-cr-reward">REWARD: +8 OR +20 WATER</span>
-        </div>
         <div class="vbm-body">
+          <div class="vb-instr">Choose a repair method — quick costs less O₂, full gives more water</div>
           <!-- decorative pipe diagram -->
           <div class="vb-pipe-row">
             <div class="vb-pipe-node">
@@ -1806,39 +1949,36 @@ body::before {
             </button>
           </div>
         </div>
+        <!-- locked until power is online -->
+        <div class="vb-lock-cover" id="vb-lk-water">
+          <span class="vb-lk-icon">⊘</span>
+          <span class="vb-lk-msg">LOCKED<br>COMPLETE STEP 1<br>POWER GRID FIRST</span>
+        </div>
       </div>
 
-      <!-- ── SCAVENGE MODULE ── -->
+      <!-- ── STEP 3: SCAVENGE MODULE ── -->
       <div class="vb-module vb-module-scav" id="vbm-scav">
         <div class="vbm-hdr">
           <span class="vbm-icon">⊞</span>
-          <span class="vbm-title">SCAVENGE VAULT</span>
+          <span class="vbm-title">3 · SCAVENGE VAULT</span>
           <span class="vbm-tag" id="vbs-scav">6 ROOMS</span>
         </div>
-        <div class="vb-cr">
-          <span class="vb-cr-cost">COST: 2 ACTIONS/ROOM</span>
-          <span class="vb-cr-sep">·</span>
-          <span class="vb-cr-reward">FIND: FOOD · WATER · METAL · WOOD</span>
-        </div>
         <div class="vbm-body">
+          <div class="vb-instr">Tap each room door to search · need 8 METAL total for comms</div>
           <div id="vb-room-grid"><!-- built by JS --></div>
           <div class="vb-scav-hint" id="vb-scav-hint">2 actions per room</div>
         </div>
       </div>
 
-      <!-- ── COMMS MODULE ── -->
+      <!-- ── STEP 4: COMMS MODULE ── -->
       <div class="vb-module vb-module-comms" id="vbm-comms">
         <div class="vbm-hdr">
           <span class="vbm-icon">▣</span>
-          <span class="vbm-title">COMMS UNIT</span>
+          <span class="vbm-title">4 · COMMS UNIT</span>
           <span class="vbm-tag" id="vbs-comms">OFFLINE</span>
         </div>
-        <div class="vb-cr">
-          <span class="vb-cr-cost">NEEDS: PWR + WATER + 8 METAL</span>
-          <span class="vb-cr-sep">·</span>
-          <span class="vb-cr-reward">COMPLETES VAULT BOOT</span>
-        </div>
         <div class="vbm-body">
+          <div class="vb-instr">Complete all 3 requirements below, then press ASSEMBLE</div>
           <div class="vb-reqs">
             <div class="vb-req-row" id="vbr-pwr">
               <div class="vb-req-check" id="vbrc-pwr">✗</div>
@@ -1856,6 +1996,11 @@ body::before {
           <div class="vb-metal-lbl" id="vb-metal-lbl">METAL: 0 / 8</div>
           <div class="vb-metal-track"><div id="vb-metal-fill"></div></div>
           <button id="vb-comms-btn" disabled onclick="vbDoComms()">[ ASSEMBLE UNIT ]</button>
+        </div>
+        <!-- locked until power+water online -->
+        <div class="vb-lock-cover" id="vb-lk-comms">
+          <span class="vb-lk-icon">⊘</span>
+          <span class="vb-lk-msg">LOCKED<br>COMPLETE STEPS 1 &amp; 2<br>POWER + WATER FIRST</span>
         </div>
       </div>
 
@@ -5812,15 +5957,15 @@ function showVaultBoot() {
   document.getElementById('vbs-scav').textContent = '6 ROOMS';
   document.getElementById('vbs-scav').className = 'vbm-tag';
   ['vbm-power','vbm-water','vbm-scav','vbm-comms'].forEach(id => {
-    document.getElementById(id)?.classList.remove('vb-done');
+    const m = document.getElementById(id);
+    if (m) m.classList.remove('vb-done', 'vb-next');
   });
 
   // Reset pipe diagram
   [0,1,2].forEach(i => {
     document.getElementById(`vbv-${i}`)?.classList.remove('open');
     document.getElementById(`vbps-${i}`)?.classList.remove('flowing');
-    const lbl = document.getElementById(`vbpl-${i}`);
-    if (lbl) lbl.classList.remove('flowing');
+    document.getElementById(`vbpl-${i}`)?.classList.remove('flowing');
   });
 
   // Reset engage button
@@ -5850,13 +5995,66 @@ function showVaultBoot() {
     document.getElementById(id)?.classList.remove('met');
   });
 
+  // Reset lock covers to locked state
+  ['vb-lk-water','vb-lk-comms'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('vb-unlocking','vb-unlocked'); }
+  });
+
   // Reset game-over
   document.getElementById('vb-gameover').classList.remove('vb-go-show');
+
+  // Show intro briefing overlay
+  const intro = document.getElementById('vb-intro');
+  if (intro) intro.classList.remove('vbi-gone');
 
   vbUpdateO2();
   vbUpdateResources();
   vbUpdateCommsPanel();
   vbApplyRoleHints(); // run again after hints exist in DOM
+}
+
+// ── Called when player presses BEGIN SEQUENCE ───────────────────
+function vbStartSequence() {
+  const intro = document.getElementById('vb-intro');
+  if (intro) intro.classList.add('vbi-gone');
+  vbSetNext('vbm-power');
+  vbSetStatus('STEP 1: tap each breaker to flip ON, then press ENGAGE MAIN BREAKER');
+}
+
+// ── Highlight next recommended module ──────────────────────────
+function vbSetNext(moduleId) {
+  ['vbm-power','vbm-water','vbm-scav','vbm-comms'].forEach(id => {
+    document.getElementById(id)?.classList.remove('vb-next');
+  });
+  if (moduleId) document.getElementById(moduleId)?.classList.add('vb-next');
+}
+
+// ── Show brief "COMPLETE" flash on a module ─────────────────────
+function vbStepFlash(moduleId, label) {
+  const mod = document.getElementById(moduleId);
+  if (!mod) return;
+  const el = document.createElement('div');
+  el.className = 'vb-step-flash';
+  el.innerHTML = `<span>✓ ${label}</span><small>ONLINE</small>`;
+  mod.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+// ── Unlock water module (called after power is online) ──────────
+function vbUnlockWater() {
+  const lk = document.getElementById('vb-lk-water');
+  if (!lk) return;
+  lk.classList.add('vb-unlocking');
+  setTimeout(() => lk.classList.add('vb-unlocked'), 600);
+}
+
+// ── Unlock comms module (called after power + water online) ─────
+function vbUnlockComms() {
+  const lk = document.getElementById('vb-lk-comms');
+  if (!lk) return;
+  lk.classList.add('vb-unlocking');
+  setTimeout(() => lk.classList.add('vb-unlocked'), 600);
 }
 
 // ── Role hints ─────────────────────────────────────────────────
@@ -5951,6 +6149,7 @@ function vbToggleBreaker(i, el) {
     vbBreakersOn--;
     const btn = document.getElementById('vb-engage-btn');
     btn.disabled = true; btn.classList.remove('vb-ready');
+    vbSetStatus(`${vbBreakersOn}/6 breakers ON — flip all 6, then press ENGAGE`);
     return;
   }
   // Toggle ON — costs 1 O2
@@ -5961,7 +6160,9 @@ function vbToggleBreaker(i, el) {
   if (vbBreakersOn >= VB_BREAKER_COUNT) {
     const btn = document.getElementById('vb-engage-btn');
     btn.disabled = false; btn.classList.add('vb-ready');
-    vbSetStatus('all circuits active — engage the main bus.');
+    vbSetStatus('✓ all 6 circuits ON — press ENGAGE MAIN BREAKER now');
+  } else {
+    vbSetStatus(`${vbBreakersOn}/6 breakers ON — ${VB_BREAKER_COUNT - vbBreakersOn} remaining`);
   }
 }
 
@@ -5977,9 +6178,17 @@ function vbEngagePower() {
 
   const tag = document.getElementById('vbs-power');
   tag.textContent = 'ONLINE'; tag.classList.add('online');
-  document.getElementById('vbm-power').classList.add('vb-done');
-  vbSetStatus('power grid online. CO₂ scrubbers partially restored.');
+  const mod = document.getElementById('vbm-power');
+  mod.classList.add('vb-done'); mod.classList.remove('vb-next');
+  vbStepFlash('vbm-power', 'POWER GRID');
   vbUpdateCommsPanel();
+
+  // Unlock water module
+  vbUnlockWater();
+  setTimeout(() => {
+    vbSetNext('vbm-water');
+    vbSetStatus('✓ POWER ONLINE — STEP 2: choose a repair in WATER RECLAMATION');
+  }, 400);
 }
 
 // ── WATER ──────────────────────────────────────────────────────
@@ -6007,12 +6216,26 @@ function vbDoWater(type) {
       clearInterval(iv);
       // Replace choice buttons with outcome
       const cDiv = document.getElementById('vb-water-choices');
-      if (cDiv) cDiv.innerHTML = `<div class="vb-outcome">+${amount} WATER SECURED<br><span style="font-size:8px;color:var(--green-dark)">${type==='quick'?'quick patch applied':'full repair complete'}</span></div>`;
+      if (cDiv) cDiv.innerHTML = `<div class="vb-outcome">+${amount} WATER SECURED<br><span style="font-size:9px;color:var(--green-dim);letter-spacing:1px;">${type==='quick'?'quick patch applied':'full repair complete'}</span></div>`;
       const tag = document.getElementById('vbs-water');
       tag.textContent = 'ONLINE'; tag.classList.add('online');
-      document.getElementById('vbm-water').classList.add('vb-done');
-      vbSetStatus(`water reclamation online. ${amount} units secured.`);
+      const mod = document.getElementById('vbm-water');
+      mod.classList.add('vb-done'); mod.classList.remove('vb-next');
+      vbStepFlash('vbm-water', 'WATER');
       vbUpdateCommsPanel();
+
+      // Unlock comms module and guide to next steps
+      vbUnlockComms();
+      setTimeout(() => {
+        const needsMetal = vbState.metal < VB_METAL_NEEDED;
+        if (needsMetal) {
+          vbSetNext('vbm-scav');
+          vbSetStatus(`✓ WATER ONLINE — STEP 3: scavenge rooms for METAL (need ${VB_METAL_NEEDED - vbState.metal} more)`);
+        } else {
+          vbSetNext('vbm-comms');
+          vbSetStatus('✓ WATER ONLINE — all requirements met! press ASSEMBLE in COMMS UNIT');
+        }
+      }, 400);
     }
   }, 280);
 }
@@ -6074,7 +6297,20 @@ function vbSearchRoom(room, el) {
   const tag = document.getElementById('vbs-scav');
   if (tag) tag.textContent = `${opened}/6 SEARCHED`;
 
-  if (room.survivor) vbSetStatus(`survivor detected in ${room.label.toLowerCase()} — will join on boot.`);
+  // Directive status: prioritise metal progress towards comms, then survivor news
+  if (room.survivor) {
+    vbSetStatus(`survivor detected in ${room.label.toLowerCase()} — will join on boot.`);
+  } else {
+    const metalNeed = Math.max(0, VB_METAL_NEEDED - vbState.metal);
+    if (metalNeed > 0 && vbState.powerDone && vbState.waterDone) {
+      vbSetStatus(`need ${metalNeed} more METAL for COMMS — keep scavenging`);
+    } else if (metalNeed > 0) {
+      vbSetStatus(`metal: ${vbState.metal}/${VB_METAL_NEEDED} — keep scavenging rooms`);
+    } else if (vbState.powerDone && vbState.waterDone) {
+      vbSetNext('vbm-comms');
+      vbSetStatus('✓ enough metal! press ASSEMBLE in COMMS UNIT to complete boot');
+    }
+  }
 }
 
 // ── COMMS ──────────────────────────────────────────────────────
@@ -6104,7 +6340,10 @@ function vbUpdateCommsPanel() {
   if (btn && !vbState.commsDone) {
     btn.disabled = !allMet;
     btn.classList.toggle('vb-ready', allMet);
-    if (allMet) vbSetStatus('all requirements met — assemble the comms unit.');
+    if (allMet) {
+      vbSetNext('vbm-comms');
+      vbSetStatus('✓ ALL REQUIREMENTS MET — press ASSEMBLE UNIT to complete boot');
+    }
   }
 }
 
@@ -6129,8 +6368,10 @@ function vbDoComms() {
     btn.style.cssText = 'border-color:#cc55ff;color:#cc55ff;cursor:default;';
     const tag = document.getElementById('vbs-comms');
     tag.textContent = 'ONLINE'; tag.classList.add('online');
-    document.getElementById('vbm-comms').classList.add('vb-done');
-    vbSetStatus('comms unit online. surface scanner active. booting...');
+    const mod = document.getElementById('vbm-comms');
+    mod.classList.add('vb-done'); mod.classList.remove('vb-next');
+    vbStepFlash('vbm-comms', 'COMMS UNIT');
+    vbSetStatus('✓ ALL SYSTEMS ONLINE — surface scanner active. booting...');
     setTimeout(completeVaultBoot, 1800);
   }, 2200);
 }
