@@ -1184,6 +1184,23 @@ body::before {
 .enc-btn:disabled { color: var(--green-dark); border-color: #001a00; cursor: default; }
 .enc-outcome { color: var(--green); font-size: 11px; letter-spacing: 2px; margin-top: 10px; border-top: 1px solid #002200; padding-top: 10px; }
 .enc-outcome.bad { color: var(--red); }
+/* revisited node text — slightly dimmer */
+.enc-revisit { color: var(--green-dim); font-style: italic; margin: 0 0 6px; font-size: 12px; }
+/* role-specific action — subtle tint */
+.enc-btn-role { border-color: #003a44; color: #00aacc; }
+.enc-btn-role:hover { border-color: #00aacc; background: rgba(0,40,60,0.7); }
+/* danger warning in header */
+.enc-danger-warn { color: #ff6600; font-size: 9px; letter-spacing: 3px; }
+
+/* ── Gear chips on roster card ── */
+.roster-person-gear { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.gear-chip {
+  font-size: 9px; letter-spacing: 1px; padding: 2px 6px;
+  border-radius: 2px; border: 1px solid;
+}
+.gear-weapon { border-color: #442200; color: #cc6600; background: rgba(60,20,0,0.4); }
+.gear-armour { border-color: #003322; color: #00aa77; background: rgba(0,40,25,0.4); }
+.gear-tool   { border-color: #002244; color: #0077cc; background: rgba(0,20,50,0.4); }
 
 /* ── Game Over overlay ── */
 #game-over {
@@ -3142,6 +3159,7 @@ const G = {
   survivors: 0,
   daysPassed: 0,
   people: [],       // named survivors
+  stash: [],        // unclaimed items (overflow when person.gear is full)
   resourceHistory: { power:[], food:[], water:[], population:[] },
 };
 
@@ -3556,6 +3574,7 @@ function generatePerson(forceRole) {
     starvingDays: 0,
     wounds: 0,
     fatigue: 0,
+    gear: [],
     stats: {
       speed:  Math.max(1, Math.min(5, def.speed  + variance())),
       recon:  Math.max(1, Math.min(5, def.recon  + variance())),
@@ -4496,179 +4515,680 @@ const ACTION_DEFS = {
 // ── CYOA Encounter system ──────────────────────────────────────────────────
 // Keyed by HEX_TERRAIN type. Each entry is a pool; one is picked at random.
 // hex.eventSeen is set to true after triggering so it never repeats.
+// ── GEAR / ITEMS ────────────────────────────────────────────────
+// type: weapon | armour | tool
+// bonus: stat deltas added to person.stats for checks
+//        wound_resist: % chance per point to absorb a wound (0.25 each)
+// tags: used by encounter action `requires` gates
+const ITEMS = {
+  // — Weapons —
+  hunting_knife: { label:'HUNTING KNIFE',  type:'weapon', rarity:1, bonus:{combat:1},          tags:['blade'],            desc:'A field knife. Reliable.' },
+  crowbar:        { label:'CROWBAR',        type:'weapon', rarity:1, bonus:{combat:1},          tags:['blade','pry'],      desc:'Heavy. Opens doors too.' },
+  hatchet:        { label:'HATCHET',        type:'weapon', rarity:1, bonus:{combat:2},          tags:['blade'],            desc:'Well-balanced.' },
+  pipe_wrench:    { label:'PIPE WRENCH',    type:'weapon', rarity:1, bonus:{combat:1},          tags:['pry'],              desc:'Solid steel.' },
+  machete:        { label:'MACHETE',        type:'weapon', rarity:2, bonus:{combat:2},          tags:['blade'],            desc:'Good reach.' },
+  bolt_rifle:     { label:'BOLT RIFLE',     type:'weapon', rarity:2, bonus:{combat:3},          tags:['firearm'],          desc:'Single shot. Loud.' },
+  mil_rifle:      { label:'MILITARY RIFLE', type:'weapon', rarity:3, bonus:{combat:3},          tags:['firearm','mil_grade'], desc:'Pre-war issue.' },
+  // — Armour —
+  padded_rags:    { label:'PADDED RAGS',    type:'armour', rarity:1, bonus:{wound_resist:1},    tags:['armour'],           desc:'Better than nothing.' },
+  leather_vest:   { label:'LEATHER VEST',   type:'armour', rarity:1, bonus:{wound_resist:1},    tags:['armour'],           desc:'Toughened hide.' },
+  padded_jacket:  { label:'PADDED JACKET',  type:'armour', rarity:2, bonus:{wound_resist:2},    tags:['armour'],           desc:'Reinforced panels.' },
+  mil_vest:       { label:'MILITARY VEST',  type:'armour', rarity:3, bonus:{wound_resist:2},    tags:['armour','mil_grade'], desc:'Hard plates. Heavy.' },
+  // — Tools —
+  medkit:         { label:'MED KIT',        type:'tool',   rarity:1, bonus:{},                  tags:['medkit'],           desc:'Bandages, antiseptic, sutures.' },
+  rope:           { label:'ROPE',           type:'tool',   rarity:1, bonus:{},                  tags:['rope'],             desc:'Twenty metres.' },
+  toolbox:        { label:'TOOLBOX',        type:'tool',   rarity:1, bonus:{recon:1},            tags:['tools'],            desc:'Basic hand tools.' },
+  binoculars:     { label:'BINOCULARS',     type:'tool',   rarity:1, bonus:{recon:1},            tags:['recon'],            desc:'Good glass.' },
+  compass:        { label:'COMPASS',        type:'tool',   rarity:1, bonus:{speed:1},            tags:['nav'],              desc:'Reliable.' },
+  lockpick:       { label:'LOCKPICK SET',   type:'tool',   rarity:2, bonus:{},                  tags:['lockpick'],         desc:'Twelve picks, tension bar.' },
+  hazmat_mask:    { label:'HAZMAT MASK',    type:'tool',   rarity:2, bonus:{},                  tags:['hazmat'],           desc:'Filters particulate.' },
+  climbing_kit:   { label:'CLIMBING KIT',   type:'tool',   rarity:2, bonus:{speed:1},            tags:['rope','climb'],     desc:'Rope, hooks, harness.' },
+  field_radio:    { label:'FIELD RADIO',    type:'tool',   rarity:2, bonus:{recon:1},            tags:['radio','comms'],    desc:'Short-range. Battery good.' },
+  night_scope:    { label:'NIGHT SCOPE',    type:'tool',   rarity:3, bonus:{recon:2},            tags:['recon','mil_grade'], desc:'Image-intensifying. Rare.' },
+  fuel_can:       { label:'FUEL CAN',       type:'tool',   rarity:1, bonus:{},                  tags:['fuel'],             desc:'Empty. Useful later.' },
+};
+
+// — Gear helpers —
+function gearBonus(person, stat) {
+  if (!person?.gear?.length) return 0;
+  return person.gear.reduce((n, id) => n + (ITEMS[id]?.bonus?.[stat] || 0), 0);
+}
+function effectiveStat(person, stat) {
+  return (person?.stats?.[stat] || 0) + gearBonus(person, stat);
+}
+function statCheckLabel(eff, vs) {
+  const p = eff / (eff + vs);
+  if (p >= 0.75) return 'CERTAIN';
+  if (p >= 0.60) return 'LIKELY';
+  if (p >= 0.40) return 'RISKY';
+  return 'UNLIKELY';
+}
+function rollCheck(person, stat, vs) {
+  const eff = effectiveStat(person, stat);
+  return Math.random() < eff / (eff + vs);
+}
+function personHasTag(person, tag) {
+  if (!person?.gear?.length) return false;
+  return person.gear.some(id => ITEMS[id]?.tags?.includes(tag));
+}
+function giveItem(person, itemId) {
+  if (!person) return;
+  if (person.gear.length < 3) {
+    person.gear.push(itemId);
+  } else {
+    G.stash = G.stash || [];
+    G.stash.push(itemId);
+  }
+}
+
 const ENCOUNTER_CHANCE = {
   WASTE: 0.5, RUIN: 0.85, FOREST: 0.8,
   WATER: 0.8, GRASS: 0.6, MOUNTAIN: 0.9, BUNKER: 1.0,
 };
 
+// ── ENCOUNTER POOLS — node-graph format ─────────────────────────
+// Each encounter: { id, name, danger(1-3), entry:'start', nodes:{} }
+// Node: { text:[], actions:[] }
+// Action fields:
+//   id, label, to, fail_to, exit, once, role, requires(tag), flag(req),
+//   check:{stat,vs}, beats(str|arr|{pass,fail}),
+//   outcome(obj|{pass,fail}): {food,water,metals,wood,wound,survivor,item,log,flag:{k,v}}
 const ENCOUNTER_POOLS = {
+
   WASTE: [
-    { id:'w_body',
-      text:['A figure half-buried in ash.','It has been there a long time.','The pack on its back is sealed.'],
-      choices:[
-        { label:'SEARCH THE PACK',
-          beats:['The zipper breaks. Inside — rations, still sealed. Whoever they were, they never made it.'],
-          outcome:{ food:5, log:'salvaged rations from a body in the ash.' } },
-        { label:'LEAVE IT',
-          beats:['Some things are better left alone.'],
-          outcome:{ nothing:true } },
-      ]},
-    { id:'w_car',
-      text:['A vehicle on its side.','Doors fused shut with rust.','Something inside catches the light.'],
-      choices:[
-        { label:'BREAK THE WINDOW',
-          beats:['Glass everywhere. Inside — tools, a first-aid kit still in the plastic.'],
-          outcome:{ metals:3, log:'broke into a rusted car. found tools.' } },
-        { label:'CHECK THE BOOT',
-          beats:['Spare tyre. A jerry can — empty. But the steel is worth keeping.'],
-          outcome:{ metals:2, log:'salvaged a jerry can from an abandoned car.' } },
-        { label:'MOVE ON', beats:['Not worth the noise.'], outcome:{ nothing:true } },
-      ]},
+    { id:'w_body', name:'FIGURE IN THE ASH', danger:1, entry:'start', nodes:{
+      start:{ text:['A figure half-buried in ash.','It has been there a long time.','The pack on its back is sealed.'],
+        actions:[
+          { id:'examine', label:'EXAMINE THE FIGURE', once:true, to:'body_close',
+            beats:['Vault suit. Different number to yours. A badge on the chest: MEDIC.'] },
+          { id:'search_pack', label:'OPEN THE PACK', to:'pack' },
+          { id:'leave', label:'LEAVE IT', exit:true, beats:['Some things are better left alone.'], outcome:{nothing:true} },
+        ]},
+      body_close:{ text:['Weathered. Still. A folded photograph in the breast pocket.'],
+        actions:[
+          { id:'take_photo', label:'TAKE THE PHOTOGRAPH', once:true,
+            beats:['Two children. A house. Before.'], outcome:{flag:{k:'photo',v:true}} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      pack:{ text:['The zipper breaks. Inside — rations, still sealed. And a knife, wrapped in cloth.'],
+        actions:[
+          { id:'take_food', label:'TAKE THE RATIONS', once:true, beats:['Whoever they were, they never made it.'], outcome:{food:5, log:'salvaged rations from a body in the ash.'} },
+          { id:'take_knife', label:'TAKE THE KNIFE', once:true, beats:['Good steel. Still sharp.'], outcome:{item:'hunting_knife'} },
+          { id:'leave_pack', label:'LEAVE IT', exit:true, beats:['You put it back.'], outcome:{nothing:true} },
+        ]},
+    }},
+
+    { id:'w_car', name:'OVERTURNED VEHICLE', danger:1, entry:'start', nodes:{
+      start:{ text:['A vehicle on its side.','Doors fused shut with rust.','Something inside catches the light.'],
+        actions:[
+          { id:'break_window', label:'BREAK THE WINDOW', to:'interior',
+            check:{stat:'combat',vs:2},
+            beats:{pass:['Glass everywhere. Clean entry.'], fail:['The door shifts. You wrench your shoulder. Worth it.']},
+            outcome:{pass:{nothing:true}, fail:{wound:true}} },
+          { id:'check_boot', label:'CHECK THE BOOT', to:'boot' },
+          { id:'move_on', label:'MOVE ON', exit:true, beats:['Not worth the noise.'], outcome:{nothing:true} },
+        ]},
+      interior:{ text:['A toolkit, still in its roll. A first-aid kit in the footwell, plastic sealed.'],
+        actions:[
+          { id:'take_tools', label:'TAKE THE TOOLKIT', once:true, beats:['Solid set.'], outcome:{item:'toolbox'} },
+          { id:'take_kit', label:'TAKE THE FIRST-AID KIT', once:true, beats:['Still sealed.'], outcome:{item:'medkit'} },
+          { id:'back', label:'BACK OUTSIDE', to:'start' },
+        ]},
+      boot:{ text:['Spare tyre, flat. A jerry can — empty. Steel worth keeping.'],
+        actions:[
+          { id:'take_can', label:'TAKE THE JERRY CAN', once:true, beats:['Empty. But useful.'], outcome:{metals:2, item:'fuel_can'} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+    }},
+
+    { id:'w_beacon', name:'DISTRESS BEACON', danger:1, entry:'start', nodes:{
+      start:{ text:['A beacon. Orange, military-grade.','Blinking red. Still active.','Someone set this deliberately.'],
+        actions:[
+          { id:'disable', label:'OPEN THE CASING', to:'beacon_open' },
+          { id:'trace', label:'TRACE THE SIGNAL', role:'Scout', to:'trace_node',
+            beats:['Coordinates embedded in the repeating header.'] },
+          { id:'leave', label:'LEAVE IT', exit:true, beats:['Someone is waiting for a reply that isn\'t coming.'], outcome:{nothing:true} },
+        ]},
+      beacon_open:{ text:['Internal power cell — good for years. Broadcast loop still running.'],
+        actions:[
+          { id:'take_cell', label:'TAKE THE POWER CELL', once:true, beats:['The beacon goes dark.'], outcome:{metals:3} },
+          { id:'search', label:'SEARCH THE AREA', once:true, to:'search_node',
+            beats:['Whoever set this didn\'t camp here long.'] },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      trace_node:{ text:['A pattern in the signal. Someone hid a message in the carrier wave.'],
+        actions:[
+          { id:'decode', label:'RECORD THE COORDINATES', once:true, beats:['You write them down. A location. Unmarked on any map.'], outcome:{metals:1, log:'decoded a hidden message from a military distress beacon.'} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      search_node:{ text:['A pack, half-buried. Light — but useful.'],
+        actions:[
+          { id:'take_pack', label:'TAKE THE PACK', once:true, beats:['Food and water. Not much, but something.'], outcome:{food:3, water:2} },
+          { id:'back', label:'BACK', to:'beacon_open' },
+        ]},
+    }},
   ],
+
   RUIN: [
-    { id:'r_pharmacy',
-      text:['A pharmacy. Most shelves stripped.','The dispensary door at the back — still locked.','Someone tried to force it. They didn\'t get far.'],
-      choices:[
-        { label:'FORCE THE DOOR',
-          beats:['It gives on the third try. Inside — expired medicine, but bandages and antiseptic, sealed. Useful.'],
-          outcome:{ metals:2, log:'forced open a pharmacy dispensary. medical supplies salvaged.' } },
-        { label:'SEARCH THE FRONT SHELVES',
-          beats:['Whoever cleaned this place out was thorough. A few blister packs behind the counter. Not much.'],
-          outcome:{ food:2, log:'picked over the front shelves of an old pharmacy.' } },
-        { label:'LEAVE', beats:['The smell inside is wrong.'], outcome:{ nothing:true } },
-      ]},
-    { id:'r_school',
-      text:['A school. Three storeys. Windows intact.','The front doors are open.','Inside, chalk still on the blackboard. Someone wrote a list of names.'],
-      choices:[
-        { label:'CHECK THE STOREROOMS',
-          beats:['Cleaning supplies, nothing useful. But behind a false wall in the art room — a month\'s worth of emergency food tins.'],
-          outcome:{ food:12, log:'found an emergency cache hidden in an abandoned school.' } },
-        { label:'CALL OUT',
-          beats:['Silence. Then — movement on the second floor. A person. Thin, but alive.'],
-          outcome:{ survivor:true, log:'found a survivor sheltering in the school.' } },
-        { label:'READ THE LIST',
-          beats:['Seventeen names. Last entry: gone to find help. 14 days ago. No one came.'],
-          outcome:{ nothing:true } },
-      ]},
-    { id:'r_petrol',
-      text:['A petrol station.','The canopy has collapsed across the pumps.','One of the underground tanks is still sealed.'],
-      choices:[
-        { label:'SEARCH THE SHOP',
-          beats:['Most food is spoiled. Snacks in sealed bags — better than nothing. Behind the counter, a box of lighters.'],
-          outcome:{ food:4, metals:1, log:'raided an old petrol station shop.' } },
-        { label:'DRAIN THE TANK',
-          beats:['Fuel — degraded, but the metal casing is valuable. Hard work. You cut your hand on the fitting.'],
-          outcome:{ metals:5, wound:true, log:'drained a fuel tank for scrap. took a cut in the process.' } },
-        { label:'MARK IT AND LEAVE',
-          beats:['The tank isn\'t going anywhere.'],
-          outcome:{ nothing:true } },
-      ]},
+    { id:'r_pharmacy', name:'STRIPPED PHARMACY', danger:2, entry:'start', nodes:{
+      start:{ text:['A pharmacy. Most shelves stripped.','The dispensary door at the back — still locked.','Someone tried to force it. They didn\'t get far.'],
+        actions:[
+          { id:'front', label:'SEARCH THE FRONT', to:'front_shelves' },
+          { id:'force', label:'FORCE THE DISPENSARY DOOR', to:'dispensary',
+            check:{stat:'combat',vs:3},
+            beats:{pass:['It gives on the third try.'], fail:['Solid frame. Won\'t move.']},
+            fail_to:'start' },
+          { id:'pry', label:'PRY THE DOOR', requires:'pry', to:'dispensary',
+            beats:['The frame bends. The door swings open.'] },
+          { id:'leave', label:'LEAVE', exit:true, beats:['The smell inside is wrong.'], outcome:{nothing:true} },
+        ]},
+      front_shelves:{ text:['Thorough. A few blister packs behind the counter. A locked drawer under the register.'],
+        actions:[
+          { id:'take_packs', label:'TAKE THE BLISTER PACKS', once:true, beats:['Not much.'], outcome:{food:2} },
+          { id:'pick_drawer', label:'PICK THE DRAWER', requires:'lockpick', once:true, to:'drawer_open',
+            beats:['Click. The drawer slides out.'] },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      drawer_open:{ text:['Cash — useless. A small bottle of morphine, sealed. And a folded paper: a patient list with home addresses.'],
+        actions:[
+          { id:'take_morphine', label:'TAKE THE MORPHINE', once:true, beats:['Medical grade.'], outcome:{item:'medkit'} },
+          { id:'back', label:'BACK', to:'front_shelves' },
+        ]},
+      dispensary:{ text:['Expired medicine, mostly. But bandages and antiseptic, sealed. And a fully-stocked trauma kit on the shelf.'],
+        actions:[
+          { id:'take_bandages', label:'TAKE THE BANDAGES', once:true, beats:['Still sealed.'], outcome:{metals:1} },
+          { id:'take_trauma', label:'TAKE THE TRAUMA KIT', once:true, beats:['Full kit. Rare.'], outcome:{item:'medkit'} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+    }},
+
+    { id:'r_school', name:'ABANDONED SCHOOL', danger:2, entry:'start', nodes:{
+      start:{ text:['A school. Three storeys. Windows intact.','The front doors are open.','Chalk on the blackboard. Someone wrote a list of names.'],
+        actions:[
+          { id:'ground', label:'CHECK THE GROUND FLOOR', to:'ground_floor' },
+          { id:'upper', label:'GO UPSTAIRS', to:'upper_floor' },
+          { id:'read', label:'READ THE LIST', once:true,
+            beats:['Seventeen names. Last entry: gone to find help. Fourteen days ago. No one came.'], outcome:{nothing:true} },
+          { id:'leave', label:'LEAVE', exit:true, beats:['The silence here is wrong.'], outcome:{nothing:true} },
+        ]},
+      ground_floor:{ text:['Canteen. Overturned tables. The kitchen door is closed.'],
+        actions:[
+          { id:'kitchen', label:'CHECK THE KITCHEN', to:'kitchen' },
+          { id:'back', label:'BACK TO ENTRANCE', to:'start' },
+        ]},
+      kitchen:{ text:['Industrial shelving. Most cans burst or rusted through. Some sealed at the back.'],
+        actions:[
+          { id:'take_cans', label:'TAKE THE SEALED CANS', once:true, beats:['Heavy. Worth it.'], outcome:{food:10, log:'found sealed cans in a school kitchen.'} },
+          { id:'back', label:'BACK', to:'ground_floor' },
+        ]},
+      upper_floor:{ text:['A classroom, curtains drawn. Someone has been sleeping here. Recently.'],
+        actions:[
+          { id:'call_out', label:'CALL OUT', once:true, to:'survivor_room',
+            beats:['Silence. Then movement behind the curtain.'] },
+          { id:'search_room', label:'SEARCH THE ROOM', once:true,
+            beats:['A bag under the desk. Food, a change of clothes, a compass.'],
+            outcome:{food:4, item:'compass'} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      survivor_room:{ text:['A person. Young. Thin, but alert. They\'ve been here three weeks.'],
+        actions:[
+          { id:'take_survivor', label:'OFFER TO TAKE THEM BACK', once:true,
+            beats:['It takes a moment. Then they nod.'], outcome:{survivor:true, log:'found a survivor sheltering in an abandoned school.'} },
+          { id:'leave_them', label:'LEAVE THEM', exit:true, beats:['Not everyone wants to be found.'], outcome:{nothing:true} },
+        ]},
+    }},
+
+    { id:'r_workshop', name:'REPAIR WORKSHOP', danger:2, entry:'start', nodes:{
+      start:{ text:['A workshop. Roller doors down, but a side entrance is unlocked.','Inside — lathes, presses, benches. Undisturbed.','Someone locked this up properly before they left.'],
+        actions:[
+          { id:'benches', label:'SEARCH THE WORKBENCHES', to:'benches' },
+          { id:'storage', label:'CHECK THE PARTS STORAGE', to:'storage' },
+          { id:'office', label:'TRY THE OFFICE', to:'office' },
+          { id:'leave', label:'LEAVE', exit:true, beats:['Nothing obvious from outside.'], outcome:{nothing:true} },
+        ]},
+      benches:{ text:['Tools everywhere. Good steel. A vice still clamped to the bench.','Half-finished work left mid-job. Someone left in a hurry.'],
+        actions:[
+          { id:'take_tools', label:'TAKE THE HAND TOOLS', once:true, beats:['A full set. Valuable.'], outcome:{item:'toolbox', metals:2} },
+          { id:'pry_cabinet', label:'OPEN THE LOCKED CABINET', requires:'pry', once:true, to:'cabinet',
+            beats:['The cabinet pops. Bolts, fixings, small components.'] },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      cabinet:{ text:['Sealed containers. Precision parts — bearings, fittings. Still oiled.'],
+        actions:[
+          { id:'take_parts', label:'TAKE THE COMPONENTS', once:true, beats:['Could be useful for repairs.'], outcome:{metals:4} },
+          { id:'back', label:'BACK', to:'benches' },
+        ]},
+      storage:{ text:['Sheet metal. Lengths of pipe. A drum of machine oil, sealed.'],
+        actions:[
+          { id:'take_metal', label:'TAKE THE SHEET METAL', once:true, beats:['Heavy. Worth the load.'], outcome:{metals:5} },
+          { id:'take_wood', label:'TAKE SOME TIMBER', once:true, beats:['Dry. Good quality.'], outcome:{wood:3} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      office:{ text:['A desk. A calendar on the wall — stopped three years ago. A safe behind a poster.'],
+        actions:[
+          { id:'try_safe', label:'TRY THE SAFE', check:{stat:'recon',vs:3}, once:true,
+            beats:{pass:['The combination is written inside the calendar cover.'], fail:['Blank. No clue.']},
+            outcome:{pass:{metals:3, item:'bolt_rifle'}, fail:{nothing:true}} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+    }},
   ],
+
   FOREST: [
-    { id:'f_tracks',
-      text:['Tracks in the mud. Recent.','Boot-sized. Human.','They lead deeper into the tree line.'],
-      choices:[
-        { label:'FOLLOW THEM',
-          beats:['A camp. Cold fire. Three sleeping bags. No one here now — but a food cache is buried under the roots.'],
-          outcome:{ food:8, log:'followed tracks to an abandoned camp. food cached under the roots.' } },
-        { label:'CALL OUT',
-          beats:['A voice answers. Wary, but human. Takes time to earn trust. Worth it.'],
-          outcome:{ survivor:true, log:'found a survivor hiding in the forest.' } },
-        { label:'IGNORE THEM', beats:['Could have been old.'], outcome:{ nothing:true } },
-      ]},
-    { id:'f_stand',
-      text:['A hunting stand, high in an oak.','Someone used this place recently.','A rope hangs from the platform.'],
-      choices:[
-        { label:'CLIMB UP',
-          beats:['A waterproof case strapped to the planks. Inside — dried meat, a hunting knife, a hand-drawn map.'],
-          outcome:{ food:4, metals:1, log:'found a hunter\'s stash in a tree stand.' } },
-        { label:'WAIT AND WATCH',
-          beats:['An hour passes. No one comes. You take what\'s there.'],
-          outcome:{ food:3, log:'waited, then took the abandoned hunter\'s cache.' } },
-      ]},
-    { id:'f_grove',
-      text:['A clearing. Wild fruit trees — apple, pear.','More than expected.','Something has been eating here too.'],
-      choices:[
-        { label:'HARVEST QUICKLY',
-          beats:['Arms full. Back before whatever it is returns.'],
-          outcome:{ food:6, log:'harvested a wild fruit grove.' } },
-        { label:'SET A SNARE AND WAIT',
-          beats:['A large dog — lean but healthy. It watches you. You let it go and take the fruit instead.'],
-          outcome:{ food:5, log:'harvested fruit. left a wild dog alone.' } },
-      ]},
+    { id:'f_tracks', name:'BOOT TRACKS', danger:1, entry:'start', nodes:{
+      start:{ text:['Tracks in the mud. Recent.','Boot-sized. Human.','They lead deeper into the trees.'],
+        actions:[
+          { id:'follow', label:'FOLLOW THEM', to:'camp' },
+          { id:'call', label:'CALL OUT', once:true, to:'response',
+            beats:['A voice. Wary. Then — quiet.'] },
+          { id:'ignore', label:'IGNORE THEM', exit:true, beats:['Could have been old.'], outcome:{nothing:true} },
+        ]},
+      camp:{ text:['A camp. Fire cold for a day, maybe two. Three sleeping bags. Food cache under the roots.'],
+        actions:[
+          { id:'take_food', label:'TAKE THE FOOD CACHE', once:true, beats:['Buried deep. They\'ll be back for this.'], outcome:{food:8, log:'found a food cache buried at an abandoned camp.'} },
+          { id:'leave_note', label:'LEAVE SOMETHING BEHIND', once:true, role:'Scout',
+            beats:['A ration pack and a map marker. An offering.'], outcome:{food:-2, flag:{k:'note_left',v:true}} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      response:{ text:['Someone steps out. Hands up. Alone.','They\'ve been out here three weeks.'],
+        actions:[
+          { id:'bring_back', label:'BRING THEM BACK', once:true,
+            beats:['They don\'t say much. But they come.'], outcome:{survivor:true, log:'found a survivor hiding alone in the forest.'} },
+          { id:'trade', label:'TRADE SUPPLIES', once:true,
+            beats:['Fair exchange. Both better off.'], outcome:{food:4, metals:1} },
+          { id:'leave_them', label:'LEAVE THEM', exit:true, beats:['Some people don\'t want to be found.'], outcome:{nothing:true} },
+        ]},
+    }},
+
+    { id:'f_stand', name:'HUNTING STAND', danger:1, entry:'start', nodes:{
+      start:{ text:['A hunting stand, high in an old oak.','Someone used this recently.','A rope hangs from the platform.'],
+        actions:[
+          { id:'climb', label:'CLIMB UP', to:'platform' },
+          { id:'watch', label:'WAIT AND WATCH', once:true, to:'platform',
+            beats:['An hour passes. Nothing moves. You climb.'] },
+          { id:'leave', label:'LEAVE', exit:true, beats:['Not worth the time.'], outcome:{nothing:true} },
+        ]},
+      platform:{ text:['Good vantage. You can see three hexes in any direction.','A waterproof case strapped to the boards. A second one behind the seat.'],
+        actions:[
+          { id:'open_case', label:'OPEN THE CASE', once:true, to:'case_open',
+            beats:['Dried meat. A hand-drawn map. A hunting knife.'] },
+          { id:'open_second', label:'OPEN THE SECOND CASE', once:true,
+            beats:['Ammunition. Useless without a matching gun. But a good pair of binoculars underneath.'],
+            outcome:{item:'binoculars'} },
+          { id:'down', label:'CLIMB DOWN', to:'start' },
+        ]},
+      case_open:{ text:['Dried meat, still good. A knife wrapped in cloth. A hand-drawn map of the area.'],
+        actions:[
+          { id:'take_food', label:'TAKE THE MEAT', once:true, beats:['Enough for days.'], outcome:{food:4} },
+          { id:'take_knife', label:'TAKE THE KNIFE', once:true, beats:['Field knife. Clean edge.'], outcome:{item:'hunting_knife'} },
+          { id:'back', label:'BACK', to:'platform' },
+        ]},
+    }},
+
+    { id:'f_grove', name:'WILD FRUIT GROVE', danger:1, entry:'start', nodes:{
+      start:{ text:['A clearing. Wild apple and pear.','More than you expected.','Something has been eating here too. Tracks in the soft ground.'],
+        actions:[
+          { id:'harvest_fast', label:'HARVEST QUICKLY', once:true, to:'harvested',
+            beats:['Arms full. You move before whatever it is comes back.'],
+            outcome:{food:6, log:'harvested a wild fruit grove.'} },
+          { id:'investigate', label:'INVESTIGATE THE TRACKS', once:true, to:'tracks_node' },
+          { id:'snare', label:'SET A SNARE', once:true, to:'snare_wait',
+            beats:['You find a good spot and set it.'] },
+        ]},
+      tracks_node:{ text:['Large dog. Lean, but healthy. Watching from the treeline.'],
+        actions:[
+          { id:'leave_dog', label:'LEAVE IT ALONE', once:true, to:'harvested',
+            beats:['It watches you harvest. Doesn\'t move.'], outcome:{food:5} },
+          { id:'approach_dog', label:'APPROACH SLOWLY', once:true, to:'dog_close',
+            check:{stat:'morale',vs:2},
+            beats:{pass:['It holds still. Lets you come close.'], fail:['It bolts. Gone.']},
+            fail_to:'harvested',
+            outcome:{fail:{food:5}} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      dog_close:{ text:['A collar. No name. It looks at you like it remembers what people were.'],
+        actions:[
+          { id:'leave_dog2', label:'LEAVE IT HERE', once:true, to:'harvested',
+            beats:['You leave fruit on the ground. Take the harvest. It watches you go.'], outcome:{food:5} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      snare_wait:{ text:['You wait. The grove is quiet.'],
+        actions:[
+          { id:'check_snare', label:'CHECK THE SNARE', once:true, to:'harvested',
+            check:{stat:'recon',vs:2},
+            beats:{pass:['A rabbit. Clean kill. You take the harvest too.'], fail:['Empty. Something triggered it without getting caught.']},
+            outcome:{pass:{food:7}, fail:{food:4}} },
+        ]},
+      harvested:{ text:['The grove stripped of what\'s reachable. It\'ll grow back.'],
+        actions:[
+          { id:'leave', label:'HEAD BACK', exit:true, beats:['Good haul.'], outcome:{nothing:true} },
+        ]},
+    }},
   ],
+
   WATER: [
-    { id:'wa_dock',
-      text:['A dock. Rotten planks, solid enough.','A flat-bottomed boat tied at the end.','The reservoir stretches out — still and grey.'],
-      choices:[
-        { label:'SEARCH THE BOAT',
-          beats:['A tackle box. Fishing line, hooks, still good. Under the seat — two litres of sealed water.'],
-          outcome:{ water:5, food:2, log:'found supplies in a boat at the old dock.' } },
-        { label:'FILL CONTAINERS',
-          beats:['The water is surprisingly clear this deep. Enough to carry back.'],
-          outcome:{ water:8, log:'collected clean water from the reservoir.' } },
-      ]},
-    { id:'wa_pump',
-      text:['A pump house. Old, but the mechanism is intact.','With some work this could feed the vault.'],
-      choices:[
-        { label:'REPAIR THE PUMP',
-          beats:['Two hours of work. Bleeding knuckles. But it flows. Clean, cold water.'],
-          outcome:{ water:10, log:'repaired a pump house. major water source found.' } },
-        { label:'COLLECT AND GO',
-          beats:['No time to fix it. Collect what you can carry.'],
-          outcome:{ water:4, log:'collected water and marked the pump house for later.' } },
-      ]},
+    { id:'wa_dock', name:'OLD DOCK', danger:1, entry:'start', nodes:{
+      start:{ text:['A dock. Rotten planks, solid enough.','A flat-bottomed boat tied at the far end.','The reservoir stretches out — still and grey.'],
+        actions:[
+          { id:'boat', label:'SEARCH THE BOAT', to:'boat_node' },
+          { id:'fill', label:'FILL FROM THE RESERVOIR', once:true,
+            beats:['Surprisingly clear this deep. You fill everything.'],
+            outcome:{water:8, log:'collected clean water from the reservoir.'} },
+          { id:'dock_search', label:'SEARCH UNDER THE DOCK', once:true, to:'under_dock',
+            check:{stat:'recon',vs:2},
+            beats:{pass:['Hands through the slats. Something tied there.'], fail:['Nothing but algae.']},
+            fail_to:'start' },
+          { id:'leave', label:'LEAVE', exit:true, beats:['The water looks deep.'], outcome:{nothing:true} },
+        ]},
+      boat_node:{ text:['A tackle box. Fishing line, hooks — good condition. Under the seat: two sealed bottles.'],
+        actions:[
+          { id:'take_tackle', label:'TAKE THE TACKLE BOX', once:true, beats:['Useful.'], outcome:{food:2} },
+          { id:'take_water', label:'TAKE THE BOTTLES', once:true, beats:['Sealed. Clean.'], outcome:{water:5} },
+          { id:'back', label:'BACK TO DOCK', to:'start' },
+        ]},
+      under_dock:{ text:['A waterproof bag, tied to a strut. Someone hid this.'],
+        actions:[
+          { id:'open_bag', label:'OPEN THE BAG', once:true,
+            beats:['Rope and two flares. Emergency cache.'], outcome:{item:'rope', metals:1} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+    }},
+
+    { id:'wa_pump', name:'PUMP HOUSE', danger:1, entry:'start', nodes:{
+      start:{ text:['A pump house. Old, but the mechanism looks intact.','A broken pipe leaks rust-coloured water into the gravel.','This could be repaired.'],
+        actions:[
+          { id:'repair', label:'REPAIR THE PUMP', to:'repair_node',
+            check:{stat:'recon',vs:3},
+            beats:{pass:['Two hours. You find the fault. Cold clean water flows.'], fail:['Too complex. You can\'t trace the fault without better tools.']},
+            fail_to:'start',
+            outcome:{pass:{water:12, log:'repaired a pump house. clean water flowing.'}} },
+          { id:'repair_tools', label:'REPAIR WITH TOOLS', requires:'tools', to:'repair_node',
+            beats:['With the right tools, you find the fault in twenty minutes.'],
+            outcome:{water:12, log:'repaired a pump house using salvaged tools.'} },
+          { id:'collect', label:'COLLECT WHAT YOU CAN', once:true,
+            beats:['The slow trickle fills your containers. Takes time.'],
+            outcome:{water:4, log:'collected water from a leaking pump house.'} },
+          { id:'leave', label:'LEAVE', exit:true, beats:['You mark it for later.'], outcome:{nothing:true} },
+        ]},
+      repair_node:{ text:['The pump runs. Steady flow. Clean.','The building itself has storage — old but sealed.'],
+        actions:[
+          { id:'check_storage', label:'CHECK THE STORAGE', once:true, to:'storage_node' },
+          { id:'leave', label:'HEAD BACK', exit:true, beats:['Good find.'], outcome:{nothing:true} },
+        ]},
+      storage_node:{ text:['Maintenance supplies. Tools, pipe fittings, a roll of copper wire.'],
+        actions:[
+          { id:'take_supplies', label:'TAKE THE SUPPLIES', once:true, beats:['Heavy. Worth the weight.'], outcome:{metals:3, item:'toolbox'} },
+          { id:'back', label:'BACK', to:'repair_node' },
+        ]},
+    }},
   ],
+
   GRASS: [
-    { id:'g_signal',
-      text:['Smoke on the horizon.','Not a fire — a signal.','Someone burning green wood deliberately.'],
-      choices:[
-        { label:'MOVE TOWARD IT',
-          beats:['A family of three. Moving for weeks. One of them knows medicine.'],
-          outcome:{ survivor:true, log:'followed a smoke signal. found survivors.' } },
-        { label:'OBSERVE FIRST',
-          beats:['You watch for an hour. Nothing threatening. They are glad you were careful — trust earned.'],
-          outcome:{ survivor:true, food:2, log:'cautiously approached a signal fire. survivors found.' } },
-        { label:'IGNORE IT', beats:['Could be a trap. You keep moving.'], outcome:{ nothing:true } },
-      ]},
-    { id:'g_crops',
-      text:['Wild crops. Wheat, maybe — or something close.','Enough to make it worth stopping.','No sign of who planted them.'],
-      choices:[
-        { label:'HARVEST EVERYTHING',
-          beats:['Armfuls of grain. Dusty but edible.'],
-          outcome:{ food:6, log:'harvested wild crops from an overgrown field.' } },
-        { label:'TAKE HALF, LEAVE HALF',
-          beats:['Leave some to reseed. This could be a supply point for months.'],
-          outcome:{ food:3, log:'partially harvested a wild crop field. left it to regrow.' } },
-      ]},
+    { id:'g_signal', name:'SIGNAL FIRE', danger:1, entry:'start', nodes:{
+      start:{ text:['Smoke on the horizon.','Not a wildfire — controlled. Green wood burning.','Someone wants to be seen.'],
+        actions:[
+          { id:'approach', label:'MOVE TOWARD IT', to:'approach_node' },
+          { id:'observe', label:'OBSERVE FIRST', to:'observe_node',
+            beats:['You find cover and watch.'] },
+          { id:'ignore', label:'IGNORE IT', exit:true, beats:['Could be a trap. You keep moving.'], outcome:{nothing:true} },
+        ]},
+      observe_node:{ text:['Three people. A small camp. One is injured — arm in a sling.','They look like they\'ve been walking for weeks.'],
+        actions:[
+          { id:'approach_safe', label:'APPROACH', to:'meet_node',
+            beats:['They see you. Hands up on both sides.'] },
+          { id:'stay_hidden', label:'STAY HIDDEN', once:true, to:'stay_hidden_node',
+            beats:['You watch for another hour. They don\'t know you\'re here.'] },
+        ]},
+      approach_node:{ text:['They hear you coming. Tense. But not armed.','Three of them. Months on the road. One knows medicine.'],
+        actions:[
+          { id:'meet', label:'INTRODUCE YOURSELF', to:'meet_node' },
+          { id:'back', label:'BACK OFF', to:'start' },
+        ]},
+      meet_node:{ text:['A family. Father, daughter, a woman who says little but watches everything.','They want to come with you.'],
+        actions:[
+          { id:'take_all', label:'BRING THEM ALL BACK', once:true,
+            beats:['They gather what they have. It isn\'t much.'], outcome:{survivor:true, food:2, log:'found survivors at a signal fire. brought them back.'} },
+          { id:'take_one', label:'BRING THE MEDIC BACK', once:true,
+            beats:['The others stay. The medic goes with you.'], outcome:{survivor:true, log:'brought a field medic back from a signal fire.'} },
+          { id:'leave_them', label:'LEAVE THEM', exit:true, beats:['They watch you go.'], outcome:{nothing:true} },
+        ]},
+      stay_hidden_node:{ text:['They break camp. Head north.','They leave something behind — too heavy to carry further.'],
+        actions:[
+          { id:'take_left', label:'TAKE WHAT THEY LEFT', once:true,
+            beats:['Food. Water. A compass.'], outcome:{food:5, water:3, item:'compass'} },
+          { id:'follow', label:'FOLLOW THEM', to:'meet_node' },
+        ]},
+    }},
+
+    { id:'g_farmhouse', name:'ABANDONED FARMHOUSE', danger:1, entry:'start', nodes:{
+      start:{ text:['A farmhouse. Intact roof. Shutters closed.','The barn beside it has collapsed.','Smoke stain around the chimney — recent.'],
+        actions:[
+          { id:'house', label:'ENTER THE HOUSE', to:'house_main' },
+          { id:'barn', label:'CHECK THE BARN', to:'barn_node' },
+          { id:'call', label:'CALL OUT', once:true, to:'no_answer',
+            beats:['Nothing. But a curtain moves on the upper floor.'] },
+          { id:'leave', label:'LEAVE', exit:true, beats:['Feels too quiet.'], outcome:{nothing:true} },
+        ]},
+      no_answer:{ text:['You wait. The curtain is still.'],
+        actions:[
+          { id:'go_up', label:'GO UPSTAIRS', to:'upper_room' },
+          { id:'check_house', label:'SEARCH THE GROUND FLOOR', to:'house_main' },
+          { id:'back', label:'BACK OUTSIDE', to:'start' },
+        ]},
+      house_main:{ text:['A kitchen. Shelves, mostly empty. A trapdoor in the floor.'],
+        actions:[
+          { id:'take_shelves', label:'TAKE WHAT\'S LEFT ON THE SHELVES', once:true,
+            beats:['Preserved jars. A few months old but sealed.'], outcome:{food:5} },
+          { id:'trapdoor', label:'OPEN THE TRAPDOOR', once:true, to:'cellar',
+            beats:['Stone steps. Cold air.'] },
+          { id:'back', label:'BACK OUTSIDE', to:'start' },
+        ]},
+      cellar:{ text:['A root cellar. Dry. Organised.','Rows of preserved food. Someone stocked this methodically.'],
+        actions:[
+          { id:'take_cellar', label:'TAKE WHAT YOU CAN CARRY', once:true,
+            beats:['More than expected.'], outcome:{food:12, water:4, log:'found a well-stocked root cellar in an abandoned farmhouse.'} },
+          { id:'back', label:'BACK UP', to:'house_main' },
+        ]},
+      upper_room:{ text:['A bedroom. Bed made. A pack by the door.','Someone was ready to leave in a hurry.'],
+        actions:[
+          { id:'take_pack', label:'OPEN THE PACK', once:true,
+            beats:['Clothes, some food, a leather vest.'], outcome:{food:3, item:'leather_vest'} },
+          { id:'back', label:'BACK DOWNSTAIRS', to:'start' },
+        ]},
+      barn_node:{ text:['Collapsed roof. Hay, rotted through. A tractor, wheels sunk in mud.','The fuel tank might still have something in it.'],
+        actions:[
+          { id:'drain_fuel', label:'DRAIN THE FUEL TANK', once:true,
+            check:{stat:'recon',vs:2},
+            beats:{pass:['Degraded but present. A full can.'], fail:['Bone dry. Nothing.']},
+            outcome:{pass:{item:'fuel_can', metals:1}, fail:{nothing:true}} },
+          { id:'take_metal', label:'TAKE SCRAP METAL', once:true, beats:['Good steel in those panels.'], outcome:{metals:2} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+    }},
   ],
+
   MOUNTAIN: [
-    { id:'m_mine',
-      text:['A mine entrance. Shored with old timbers.','The air smells of rust and cold stone.','Rail tracks disappear into the dark.'],
-      choices:[
-        { label:'GO IN',
-          beats:['Fifty metres in — an untouched seam. You chip out what you can carry. Your back aches for days.'],
-          outcome:{ metals:5, wound:true, log:'entered an old mine. rich ore vein found.' } },
-        { label:'CHECK THE EQUIPMENT SHED',
-          beats:['Old tools, but solid steel. Worth taking.'],
-          outcome:{ metals:3, wood:1, log:'salvaged a mine equipment shed.' } },
-        { label:'MARK IT AND LEAVE',
-          beats:['This will be here when we are better equipped.'],
-          outcome:{ nothing:true } },
-      ]},
+    { id:'m_mine', name:'OLD MINE', danger:3, entry:'start', nodes:{
+      start:{ text:['A mine entrance. Shored with old timbers.','The air smells of rust and cold stone.','Rail tracks disappear into the dark.'],
+        actions:[
+          { id:'enter', label:'GO IN', to:'entrance_tunnel' },
+          { id:'shed', label:'CHECK THE EQUIPMENT SHED', to:'shed_node' },
+          { id:'mark', label:'MARK IT AND LEAVE', exit:true, beats:['This will be here when you\'re better equipped.'], outcome:{nothing:true} },
+        ]},
+      entrance_tunnel:{ text:['Twenty metres in, the light from outside fades.','Something drips in the dark ahead.','The tracks lead deeper.'],
+        actions:[
+          { id:'deeper', label:'GO DEEPER', to:'deep_tunnel',
+            check:{stat:'combat',vs:3},
+            beats:{pass:['You move carefully. The timbers creak but hold.'], fail:['A section collapses. You pull back, shaken.']},
+            fail_to:'start', outcome:{fail:{wound:true}} },
+          { id:'vein', label:'CHIP ORE FROM THE WALLS', once:true,
+            beats:['Rich seam right here. You chip out what you can.'], outcome:{metals:3} },
+          { id:'back', label:'BACK TO ENTRANCE', to:'start' },
+        ]},
+      deep_tunnel:{ text:['Fifty metres in. An untouched seam — wide as your arm.','A cart, derailed. Something in it.'],
+        actions:[
+          { id:'mine_ore', label:'MINE THE SEAM', once:true,
+            beats:['Hard work. Your back will ache for days.'], outcome:{metals:6, log:'found a rich ore seam deep in the mine.'} },
+          { id:'check_cart', label:'CHECK THE CART', once:true, to:'cart_node',
+            beats:['Rusted but movable.'] },
+          { id:'back_entrance', label:'BACK TO ENTRANCE', to:'entrance_tunnel' },
+        ]},
+      cart_node:{ text:['The cart holds equipment. Old, but well-made. A jacket underneath — heavy, padded.'],
+        actions:[
+          { id:'take_equipment', label:'TAKE THE EQUIPMENT', once:true, beats:['Worth the weight.'], outcome:{metals:2, item:'toolbox'} },
+          { id:'take_jacket', label:'TAKE THE JACKET', once:true, beats:['Thick canvas, padded lining. Built for this work.'], outcome:{item:'padded_jacket'} },
+          { id:'back', label:'BACK', to:'deep_tunnel' },
+        ]},
+      shed_node:{ text:['Old tools. Solid steel, most of it. A rack of equipment on the far wall.','A locked chest under the workbench.'],
+        actions:[
+          { id:'take_tools', label:'TAKE THE TOOLS', once:true, beats:['Heavy. Worth it.'], outcome:{metals:3, wood:1, item:'toolbox'} },
+          { id:'open_chest', label:'OPEN THE CHEST', once:true,
+            check:{stat:'combat',vs:2},
+            beats:{pass:['Hinges give with enough force.'], fail:['Too well made. Won\'t budge.']},
+            outcome:{pass:{item:'bolt_rifle', metals:1}, fail:{nothing:true}} },
+          { id:'back', label:'BACK TO ENTRANCE', to:'start' },
+        ]},
+    }},
+
+    { id:'m_cache', name:'HIDDEN CACHE', danger:3, entry:'start', nodes:{
+      start:{ text:['A rockface. Unremarkable.','But a section of stone looks wrong — the weathering doesn\'t match.','Someone did this deliberately.'],
+        actions:[
+          { id:'examine_rock', label:'EXAMINE THE ROCKFACE', to:'rock_examine',
+            check:{stat:'recon',vs:3},
+            beats:{pass:['A seam. A door.'], fail:['You press and tap for an hour. Nothing.']},
+            fail_to:'start' },
+          { id:'scout_examine', label:'SCAN THE AREA', role:'Scout', to:'rock_examine',
+            beats:['Your eye catches it immediately. A seam in the stone.'] },
+          { id:'leave', label:'LEAVE', exit:true, beats:['Nothing here.'], outcome:{nothing:true} },
+        ]},
+      rock_examine:{ text:['A concealed door. Military-grade seals. A numerical pad on one side.','Four digits. The pad still has power — barely.'],
+        actions:[
+          { id:'force_door', label:'FORCE THE DOOR', requires:'pry',
+            check:{stat:'combat',vs:4},
+            beats:{pass:['The frame bends. The door scrapes open.'], fail:['The steel holds. You\'ll need more.']},
+            to:'cache_interior', fail_to:'rock_examine',
+            outcome:{fail:{wound:true}} },
+          { id:'crack_code', label:'CRACK THE CODE', requires:'lockpick',
+            beats:['Systematic. Seventeen minutes. The pad beeps green.'],
+            to:'cache_interior' },
+          { id:'study_code', label:'STUDY THE PAD', once:true, role:'Scout',
+            beats:['Worn digits: 1, 4, 7. The fourth is unknown.'], outcome:{flag:{k:'code_partial',v:true}} },
+          { id:'back', label:'BACK', to:'start' },
+        ]},
+      cache_interior:{ text:['Cold inside. Dry.','Shelving. Organised. This was stocked to last.'],
+        actions:[
+          { id:'take_food_cache', label:'TAKE THE FOOD', once:true, beats:['Military rations. Sealed. Dozens.'], outcome:{food:15, log:'found a hidden military supply cache in the mountains.'} },
+          { id:'take_equipment', label:'TAKE THE EQUIPMENT', once:true, beats:['Vest, rifle, scope.'], outcome:{item:'mil_vest', item2:'mil_rifle'} },
+          { id:'take_water', label:'TAKE THE WATER', once:true, beats:['Purified, bottled.'], outcome:{water:10} },
+          { id:'leave', label:'HEAD OUT', exit:true, beats:['You take what you can carry and head back.'], outcome:{nothing:true} },
+        ]},
+    }},
   ],
+
   BUNKER: [
-    { id:'b_sealed',
-      text:['Another bunker. Reinforced door — different design to yours.','The locking mechanism is external.','Someone sealed this from the outside.'],
-      choices:[
-        { label:'UNSEAL IT',
-          beats:['The door swings in. Three people inside. They sealed themselves in after an injury. They thought rescue wasn\'t coming.'],
-          outcome:{ survivor:true, log:'unsealed a bunker. survivors found inside.' } },
-        { label:'CALL THROUGH THE DOOR',
-          beats:['Silence. Then a voice — weak but alive. You work faster.'],
-          outcome:{ survivor:true, food:3, log:'opened a sealed bunker. survivors and supplies inside.' } },
-        { label:'LEAVE IT SEALED', beats:['Not your business. You keep moving.'], outcome:{ nothing:true } },
-      ]},
+    { id:'b_sealed', name:'SEALED BUNKER', danger:3, entry:'start', nodes:{
+      start:{ text:['Another bunker. Reinforced door — different design to yours.','The locking mechanism is external.','Someone sealed this from the outside.'],
+        actions:[
+          { id:'call_door', label:'CALL THROUGH THE DOOR', once:true, to:'door_call',
+            beats:['You press your ear to the steel.'] },
+          { id:'unseal', label:'UNSEAL THE DOOR', to:'door_open',
+            check:{stat:'combat',vs:2},
+            beats:{pass:['The external bolts slide back. The door swings in.'], fail:['Seized tight. You need more leverage.']},
+            fail_to:'start' },
+          { id:'pry_open', label:'PRY THE DOOR OPEN', requires:'pry', to:'door_open',
+            beats:['With the crowbar in the frame, the bolts give.'] },
+          { id:'leave', label:'LEAVE IT SEALED', exit:true, beats:['Not your business.'], outcome:{nothing:true} },
+        ]},
+      door_call:{ text:['Silence. Then — a knock. Slow, deliberate. Alive.'],
+        actions:[
+          { id:'work_faster', label:'UNSEAL THE DOOR', to:'door_open',
+            check:{stat:'combat',vs:2},
+            beats:{pass:['You work quickly. Bolts back. Door open.'], fail:['Still won\'t move.']},
+            fail_to:'start' },
+          { id:'pry_fast', label:'PRY IT OPEN', requires:'pry', to:'door_open',
+            beats:['Leveraged open in seconds.'] },
+        ]},
+      door_open:{ text:['Three people. They sealed themselves in after an injury.','Thin. Pale. But alive.','The bunker behind them — stocked.'],
+        actions:[
+          { id:'bring_out', label:'BRING THEM OUT', once:true, to:'bunker_interior',
+            beats:['It takes time. They aren\'t used to the light.'],
+            outcome:{survivor:true, log:'found survivors sealed in a bunker. brought them out.'} },
+          { id:'leave_in', label:'LEAVE THEM — CHECK THE BUNKER', to:'bunker_interior' },
+        ]},
+      bunker_interior:{ text:['Well-stocked. Methodically organised.','Food, water, a medical station. Equipment in the far alcove.'],
+        actions:[
+          { id:'take_food', label:'TAKE THE FOOD STORES', once:true, beats:['Cases of rations.'], outcome:{food:10} },
+          { id:'take_water', label:'TAKE THE WATER', once:true, beats:['Purified. Sealed.'], outcome:{water:8} },
+          { id:'take_medical', label:'TAKE THE MEDICAL SUPPLIES', once:true, beats:['Stocked trauma kit.'], outcome:{item:'medkit', metals:1} },
+          { id:'alcove', label:'CHECK THE EQUIPMENT ALCOVE', once:true, to:'alcove_node' },
+          { id:'leave', label:'HEAD BACK', exit:true, beats:['You take what you can carry.'], outcome:{nothing:true} },
+        ]},
+      alcove_node:{ text:['Military equipment. Sorted, sealed, labelled.','A rifle rack. A vest. A scope in a case.'],
+        actions:[
+          { id:'take_vest', label:'TAKE THE VEST', once:true, beats:['Heavy. Military grade.'], outcome:{item:'mil_vest'} },
+          { id:'take_rifle', label:'TAKE THE RIFLE', once:true, beats:['Pre-war issue. Perfect condition.'], outcome:{item:'mil_rifle'} },
+          { id:'take_scope', label:'TAKE THE SCOPE', once:true, beats:['Night optics. Rare.'], outcome:{item:'night_scope'} },
+          { id:'back', label:'BACK', to:'bunker_interior' },
+        ]},
+    }},
+
+    { id:'b_compound', name:'ABANDONED COMPOUND', danger:3, entry:'start', nodes:{
+      start:{ text:['A compound. Chain-link fence, intact.','Gate padlocked. Guard post empty.','Inside — two prefab buildings and a vehicle bay.'],
+        actions:[
+          { id:'climb_fence', label:'CLIMB THE FENCE', to:'inside',
+            check:{stat:'speed',vs:2},
+            beats:{pass:['Up and over in seconds.'], fail:['You catch your leg. Come down hard.']},
+            fail_to:'start', outcome:{fail:{wound:true}} },
+          { id:'gate_pick', label:'PICK THE PADLOCK', requires:'lockpick', to:'inside',
+            beats:['Three minutes. The gate swings open.'] },
+          { id:'cut_fence', label:'CUT THROUGH THE FENCE', requires:'blade', to:'inside',
+            beats:['You work through a section. It peels back.'] },
+          { id:'leave', label:'LEAVE', exit:true, beats:['Too exposed.'], outcome:{nothing:true} },
+        ]},
+      inside:{ text:['Quiet inside. Boot prints in the dust — old.','Building A has a broken window. Building B is locked.','The vehicle bay doors are open.'],
+        actions:[
+          { id:'building_a', label:'ENTER BUILDING A', to:'building_a' },
+          { id:'building_b', label:'TRY BUILDING B', to:'building_b_outside' },
+          { id:'vehicle_bay', label:'CHECK THE VEHICLE BAY', to:'vehicle_bay' },
+          { id:'leave', label:'LEAVE', exit:true, beats:['You\'ve seen enough.'], outcome:{nothing:true} },
+        ]},
+      building_a:{ text:['Barracks. Eight bunks. Stripped bare.','A footlocker at the end — still locked.','A map pinned to the wall.'],
+        actions:[
+          { id:'take_map', label:'STUDY THE MAP', once:true, role:'Scout',
+            beats:['Patrol routes. Resource markers. This was a forward base.'],
+            outcome:{metals:1, log:'found patrol route maps at an abandoned military compound.'} },
+          { id:'force_locker', label:'FORCE THE FOOTLOCKER', once:true,
+            check:{stat:'combat',vs:2},
+            beats:{pass:['Hinges pop. Inside — clothing, a field radio.'], fail:['Solid. Won\'t move.']},
+            outcome:{pass:{item:'field_radio', item2:'padded_jacket'}, fail:{nothing:true}} },
+          { id:'back', label:'BACK OUTSIDE', to:'inside' },
+        ]},
+      building_b_outside:{ text:['Locked. Steel door, electronic pad — no power.','But there\'s a generator housing around the side.'],
+        actions:[
+          { id:'generator', label:'FIND THE GENERATOR', once:true, to:'generator_node',
+            beats:['Around the side. Small diesel unit.'] },
+          { id:'back', label:'BACK', to:'inside' },
+        ]},
+      generator_node:{ text:['Diesel generator. Dry tank.'],
+        actions:[
+          { id:'fuel_generator', label:'FUEL THE GENERATOR', requires:'fuel', once:true, to:'building_b_open',
+            beats:['It coughs. Then runs.'], outcome:{flag:{k:'gen_on',v:true}} },
+          { id:'back', label:'BACK', to:'inside' },
+        ]},
+      building_b_open:{ text:['The electronic lock clicks open.','An armoury. Small, but stocked.'],
+        actions:[
+          { id:'take_vest', label:'TAKE THE VEST', once:true, beats:['Hard plates. Heavy.'], outcome:{item:'mil_vest'} },
+          { id:'take_rifle', label:'TAKE THE RIFLE', once:true, beats:['Military issue.'], outcome:{item:'mil_rifle'} },
+          { id:'take_rations', label:'TAKE THE RATIONS', once:true, beats:['Military rations. Sealed.'], outcome:{food:8, water:4} },
+          { id:'back', label:'BACK', to:'inside' },
+        ]},
+      vehicle_bay:{ text:['Two vehicles. Both stripped for parts.','A workbench. Tools still laid out — whoever was here left mid-job.'],
+        actions:[
+          { id:'take_parts', label:'SALVAGE THE PARTS', once:true, beats:['Engine components. Still good.'], outcome:{metals:5} },
+          { id:'take_tools', label:'TAKE THE TOOLS', once:true, beats:['Full set.'], outcome:{item:'toolbox'} },
+          { id:'back', label:'BACK', to:'inside' },
+        ]},
+    }},
   ],
 };
 
@@ -5532,113 +6052,175 @@ function pickEncounter(terrain) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// Set while text is being revealed; null when choices are showing.
-// Calling it skips all pending text instantly.
+// ── ENCOUNTER ENGINE — node-graph ───────────────────────────────
 let encounterSkipFn = null;
+let encState = null; // { enc, hex, person, currentNode, visited:Set, used:Set, flags:{} }
 
 function showEncounter(enc, hex, person) {
-  const overlay = document.getElementById('encounter-overlay');
+  encState = { enc, hex, person, currentNode: enc.entry,
+               visited: new Set(), used: new Set(), flags: {} };
+
+  const overlay  = document.getElementById('encounter-overlay');
   const headerEl = document.getElementById('encounter-header');
-  const textEl = document.getElementById('encounter-text');
+  const textEl   = document.getElementById('encounter-text');
   const choicesEl = document.getElementById('encounter-choices');
 
   const firstName = person ? person.name.split(' ')[0] : 'SCOUT';
-  const terrain = HEX_TERRAIN[hex.terrain]?.label?.toUpperCase() || 'UNKNOWN';
-  headerEl.textContent = `${firstName.toUpperCase()}  ·  ${terrain}`;
+  const terrain   = HEX_TERRAIN[hex.terrain]?.label?.toUpperCase() || 'UNKNOWN';
+  headerEl.innerHTML = `${firstName.toUpperCase()}  ·  ${enc.name || terrain}`;
+
+  // Danger warning when scout is likely under-geared
+  if (enc.danger >= 2 && person) {
+    const effCombat = effectiveStat(person, 'combat');
+    if (effCombat < enc.danger * 2) {
+      const warn = document.createElement('span');
+      warn.className = 'enc-danger-warn';
+      warn.textContent = enc.danger >= 3 ? '  ⚠ HIGH RISK' : '  ⚠ RISKY';
+      headerEl.appendChild(warn);
+    }
+  }
+
   textEl.innerHTML = '';
   choicesEl.innerHTML = '';
-
   overlay.classList.add('active');
-
-  // Tap anywhere during text reveal to skip straight to choices
   overlay.onclick = () => { if (encounterSkipFn) encounterSkipFn(); };
 
-  const encFirstName = person ? person.name.split(' ')[0] : null;
-  const encText = enc.text.map(l => subPron(l, person, encFirstName));
-  revealEncounterLines(encText, textEl, () => {
-    showEncounterChoices(enc.choices, choicesEl, textEl, hex, person);
+  encNavigate(enc.entry, true);
+}
+
+function encNavigate(nodeId, isEntry) {
+  const node = encState.enc.nodes[nodeId];
+  if (!node) return;
+  const isRevisit = !isEntry && encState.visited.has(nodeId);
+  encState.currentNode = nodeId;
+  encState.visited.add(nodeId);
+
+  const textEl    = document.getElementById('encounter-text');
+  const choicesEl = document.getElementById('encounter-choices');
+  choicesEl.innerHTML = '';
+
+  const fn = encState.person ? encState.person.name.split(' ')[0] : null;
+  const lines = node.text.map(l => subPron(l, encState.person, fn));
+
+  if (isRevisit) {
+    const p = document.createElement('p');
+    p.className = 'enc-revisit';
+    p.textContent = lines.join(' ');
+    textEl.appendChild(p);
+    encRenderActions(node, choicesEl);
+  } else {
+    revealEncounterLines(lines, textEl, () => encRenderActions(node, choicesEl));
+  }
+}
+
+function encRenderActions(node, choicesEl) {
+  const p = encState.person;
+  const visible = node.actions.filter(a => {
+    if (a.once && encState.used.has(a.id)) return false;
+    if (a.role && (!p || p.role !== a.role)) return false;
+    if (a.requires && !personHasTag(p, a.requires)) return false;
+    if (a.flag && encState.flags[a.flag.k] !== a.flag.v) return false;
+    return true;
   });
-}
 
-function revealEncounterLines(lines, el, onDone) {
-  let i = 0;
-  let currentIv = null;
-  let currentP = null;
-  let currentLine = '';
-  let currentChar = 0;
-
-  function skip() {
-    if (currentIv) { clearInterval(currentIv); currentIv = null; }
-    // Complete the current line if mid-reveal
-    if (currentP) currentP.textContent = currentLine;
-    // Dump all remaining lines instantly
-    while (i < lines.length) {
-      const p = document.createElement('p');
-      p.textContent = lines[i++];
-      el.appendChild(p);
-    }
-    encounterSkipFn = null;
-    onDone();
-  }
-
-  encounterSkipFn = skip;
-
-  function nextLine() {
-    if (i >= lines.length) { encounterSkipFn = null; setTimeout(onDone, 200); return; }
-    currentP = document.createElement('p');
-    el.appendChild(currentP);
-    currentChar = 0;
-    currentLine = lines[i++];
-    currentIv = setInterval(() => {
-      if (currentChar >= currentLine.length) {
-        clearInterval(currentIv); currentIv = null;
-        setTimeout(nextLine, 160);
-        return;
-      }
-      currentP.textContent += currentLine[currentChar++];
-    }, 22);
-  }
-  nextLine();
-}
-
-function showEncounterChoices(choices, choicesEl, textEl, hex, person) {
-  choices.forEach(choice => {
+  visible.forEach(action => {
     const btn = document.createElement('button');
     btn.className = 'enc-btn';
-    btn.textContent = `[ ${choice.label} ]`;
-    btn.addEventListener('click', () => {
-      choicesEl.querySelectorAll('.enc-btn').forEach(b => b.disabled = true);
-      if (choice.beats && choice.beats.length) {
-        const chFirstName = person ? person.name.split(' ')[0] : null;
-        const beats = choice.beats.map(l => subPron(l, person, chFirstName));
-        revealEncounterLines(beats, textEl, () => {
-          applyEncounterOutcome(choice.outcome, textEl, hex, person);
-        });
-      } else {
-        applyEncounterOutcome(choice.outcome, textEl, hex, person);
-      }
-    });
+    let label = `[ ${action.label} ]`;
+    if (action.check) {
+      const eff = effectiveStat(p, action.check.stat);
+      const lbl = statCheckLabel(eff, action.check.vs);
+      label += `  ${action.check.stat.toUpperCase().slice(0,3)} ${action.check.vs}·${lbl}`;
+    }
+    btn.textContent = label;
+    if (action.role) btn.classList.add('enc-btn-role');
+    btn.addEventListener('click', () => encResolveAction(action));
     choicesEl.appendChild(btn);
   });
 }
 
-function applyEncounterOutcome(outcome, textEl, hex, person) {
-  if (!outcome) { setTimeout(closeEncounter, 1200); return; }
+function encResolveAction(action) {
+  const textEl    = document.getElementById('encounter-text');
+  const choicesEl = document.getElementById('encounter-choices');
+  choicesEl.querySelectorAll('.enc-btn').forEach(b => b.disabled = true);
 
+  if (action.once) encState.used.add(action.id);
+
+  let passed = true;
+  if (action.check) passed = rollCheck(encState.person, action.check.stat, action.check.vs);
+
+  // Resolve beats
+  let beats = action.beats;
+  if (beats && !Array.isArray(beats) && typeof beats === 'object')
+    beats = passed ? beats.pass : beats.fail;
+  if (typeof beats === 'string') beats = [beats];
+
+  // Resolve outcome
+  let outcome = action.outcome;
+  if (outcome && (outcome.pass !== undefined || outcome.fail !== undefined))
+    outcome = passed ? outcome.pass : outcome.fail;
+
+  // Apply flag from outcome
+  if (outcome?.flag) encState.flags[outcome.flag.k] = outcome.flag.v;
+
+  const fn = encState.person ? encState.person.name.split(' ')[0] : null;
+  const beatLines = (beats || []).map(l => subPron(l, encState.person, fn));
+
+  const afterBeats = () => {
+    if (outcome) encApplyOutcome(outcome, textEl);
+    const hasReward = outcome && !outcome.nothing;
+    const delay = hasReward ? 2200 : 900;
+
+    if (action.exit) {
+      setTimeout(closeEncounter, delay);
+      return;
+    }
+    const nextId = passed ? (action.to || encState.currentNode)
+                          : (action.fail_to || encState.currentNode);
+    setTimeout(() => {
+      textEl.innerHTML = '';
+      encNavigate(nextId);
+    }, delay);
+  };
+
+  beatLines.length
+    ? revealEncounterLines(beatLines, textEl, afterBeats)
+    : afterBeats();
+}
+
+function encApplyOutcome(outcome, textEl) {
+  if (!outcome || outcome.nothing) return;
   const parts = [];
-  if (outcome.food)     { G.food    += outcome.food;    parts.push(`+${outcome.food} food`); }
-  if (outcome.water)    { G.water   += outcome.water;   parts.push(`+${outcome.water} water`); }
-  if (outcome.metals)   { G.metals  += outcome.metals;  parts.push(`+${outcome.metals} metals`); }
-  if (outcome.wood)     { G.wood    += outcome.wood;    parts.push(`+${outcome.wood} wood`); }
+  const p = encState.person;
 
-  if (outcome.wound && person) {
-    person.wounds = Math.min(3, (person.wounds || 0) + 1);
-    parts.push('⚠ WOUNDED');
-    if (person.wounds >= 3) {
-      G.people = G.people.filter(p => p.id !== person.id);
-      G.scoutUnits = G.scoutUnits.filter(s => s.personId !== person.id);
-      G.population = G.people.length;
-      person = null;
+  if (outcome.food)   { G.food   += outcome.food;   parts.push(`+${outcome.food} FOOD`); }
+  if (outcome.water)  { G.water  += outcome.water;  parts.push(`+${outcome.water} WATER`); }
+  if (outcome.metals) { G.metals += outcome.metals; parts.push(`+${outcome.metals} METALS`); }
+  if (outcome.wood)   { G.wood   += outcome.wood;   parts.push(`+${outcome.wood} WOOD`); }
+
+  // Item(s) — support outcome.item and outcome.item2 for dual drops
+  [outcome.item, outcome.item2].forEach(itemId => {
+    if (!itemId) return;
+    const def = ITEMS[itemId];
+    if (!def) return;
+    giveItem(p, itemId);
+    parts.push(`+ ${def.label}`);
+  });
+
+  if (outcome.wound && p) {
+    const resist = gearBonus(p, 'wound_resist');
+    const absorbed = resist > 0 && Math.random() < resist * 0.28;
+    if (absorbed) {
+      parts.push('ARMOUR ABSORBED BLOW');
+    } else {
+      p.wounds = Math.min(3, (p.wounds || 0) + 1);
+      parts.push('⚠ WOUNDED');
+      if (p.wounds >= 3) {
+        G.people      = G.people.filter(pp => pp.id !== p.id);
+        G.scoutUnits  = G.scoutUnits.filter(s => s.personId !== p.id);
+        G.population  = G.people.length;
+        encState.person = null;
+      }
     }
   }
 
@@ -5656,27 +6238,52 @@ function applyEncounterOutcome(outcome, textEl, hex, person) {
 
   updateHUD(); drawMap();
 
-  if (outcome.log && person) {
-    const logText = subPron(outcome.log, person, person.name.split(' ')[0]);
-    setTimeout(() => log(`◈ ${person.name.split(' ')[0]}: ${logText}`, 'story'), 1600);
+  if (outcome.log && encState.person) {
+    const fn = encState.person.name.split(' ')[0];
+    setTimeout(() => log(`◈ ${fn}: ${subPron(outcome.log, encState.person, fn)}`, 'story'), 1600);
   }
 
-  if (parts.length > 0) {
+  if (parts.length) {
     const outEl = document.createElement('div');
     outEl.className = 'enc-outcome' + (outcome.wound ? ' bad' : '');
     outEl.textContent = parts.join('   ');
     textEl.appendChild(outEl);
   }
+}
 
-  setTimeout(closeEncounter, outcome.nothing ? 1000 : 2200);
+function revealEncounterLines(lines, el, onDone) {
+  let i = 0, currentIv = null, currentP = null, currentLine = '', currentChar = 0;
+
+  function skip() {
+    if (currentIv) { clearInterval(currentIv); currentIv = null; }
+    if (currentP) currentP.textContent = currentLine;
+    while (i < lines.length) {
+      const p = document.createElement('p'); p.textContent = lines[i++]; el.appendChild(p);
+    }
+    encounterSkipFn = null; onDone();
+  }
+  encounterSkipFn = skip;
+
+  function nextLine() {
+    if (i >= lines.length) { encounterSkipFn = null; setTimeout(onDone, 200); return; }
+    currentP = document.createElement('p'); el.appendChild(currentP);
+    currentChar = 0; currentLine = lines[i++];
+    currentIv = setInterval(() => {
+      if (currentChar >= currentLine.length) {
+        clearInterval(currentIv); currentIv = null; setTimeout(nextLine, 160); return;
+      }
+      currentP.textContent += currentLine[currentChar++];
+    }, 22);
+  }
+  nextLine();
 }
 
 function closeEncounter() {
   encounterSkipFn = null;
+  encState = null;
   const overlay = document.getElementById('encounter-overlay');
   overlay.onclick = null;
   overlay.classList.remove('active');
-  // Re-open hex-info if player tapped a hex (selectedH preserved)
   if (selectedH) setTimeout(() => openHexInfo(selectedH), 300);
 }
 
@@ -6202,6 +6809,7 @@ function openRosterOverlay() {
         <div class="roster-person-stats">
           SPD ${statBar(p.stats.speed)}  RCN ${statBar(p.stats.recon)}  CMB ${statBar(p.stats.combat)}  MRL ${statBar(p.stats.morale)}
         </div>
+        ${(p.gear&&p.gear.length) ? `<div class="roster-person-gear">${p.gear.map(id=>{const it=ITEMS[id];return it?`<span class="gear-chip gear-${it.type}">${it.label}</span>`:''}).join('')}</div>` : ''}
         ${(()=>{
           const fat = p.fatigue||0;
           const fatColor = fat >= MAX_FATIGUE ? 'var(--red)' : fat >= MAX_FATIGUE-1 ? '#ffb000' : '#003a00';
