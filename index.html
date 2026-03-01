@@ -886,6 +886,34 @@ body::before {
 .char-confirm-btn:hover { background: var(--green); color: var(--bg); }
 .char-confirm-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+/* ── Char-create: fit on small / short screens without scrolling ── */
+@media (max-width: 600px), (max-height: 720px) {
+  /* Let the outer wrapper scroll instead of the panel */
+  #char-create {
+    justify-content: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 0 16px;
+  }
+  #char-panel {
+    max-height: none;
+    overflow-y: visible;
+    width: min(520px, 96vw);
+    margin: auto;
+  }
+  /* Tighten internal spacing */
+  .char-title    { font-size: 15px; padding: 9px 14px 7px; letter-spacing: 2px; }
+  .char-subtitle { font-size: 10px; padding: 7px 14px; line-height: 1.5; }
+  .char-field    { padding: 8px 14px; }
+  .char-label    { font-size: 10px; letter-spacing: 2px; margin-bottom: 5px; }
+  .char-input    { font-size: 13px; padding: 5px 8px; }
+  .char-opt      { font-size: 12px; padding: 7px 8px; }
+  .char-role-grid { gap: 4px; }
+  .char-role-opt  { font-size: 11px; padding: 6px 8px; }
+  .char-stat-preview { font-size: 10px; padding: 6px 8px; line-height: 1.6; margin-top: 4px; }
+  .char-confirm  { padding: 8px 14px 12px; }
+}
+
 /* Resource Charts */
 #res-charts {
   position: absolute;
@@ -4548,7 +4576,8 @@ const ENCOUNTER_POOLS = {
   ],
 };
 
-let HEX_SIZE = 30;
+// Start more zoomed-out on narrow screens so pinch-in/out has useful range
+let HEX_SIZE = window.innerWidth < 700 ? 20 : 30;
 const canvas = document.getElementById('gc');
 const ctx2 = canvas.getContext('2d');
 let W2, H2, camX=0, camY=0, tCamX=0, tCamY=0;
@@ -6189,7 +6218,7 @@ canvas.addEventListener('mouseup',e=>{
 });
 canvas.addEventListener('wheel',e=>{
   e.preventDefault();
-  HEX_SIZE=Math.max(18,Math.min(50,HEX_SIZE-e.deltaY*0.03));
+  HEX_SIZE=Math.max(12,Math.min(60,HEX_SIZE-e.deltaY*0.03));
   drawMap();
 },{passive:false});
 canvas.addEventListener('touchstart',e=>{
@@ -6199,7 +6228,9 @@ canvas.addEventListener('touchstart',e=>{
     isDragging=false;
     const p=canvasPos(t[0].clientX,t[0].clientY);
     dragStart={x:p.x,y:p.y,cx:tCamX,cy:tCamY};
-  } else if(t.length===2){
+  } else if(t.length>=2){
+    // Reset drag when second finger lands so pinch doesn't fight pan
+    isDragging=false;
     pinchDist=Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
   }
 },{passive:false});
@@ -6211,9 +6242,9 @@ canvas.addEventListener('touchmove',e=>{
     const dx=p.x-dragStart.x,dy=p.y-dragStart.y;
     if(Math.abs(dx)+Math.abs(dy)>8) isDragging=true;
     if(isDragging){tCamX=dragStart.cx-dx;tCamY=dragStart.cy-dy;animMap();}
-  } else if(t.length===2){
+  } else if(t.length>=2){
     const nd=Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
-    HEX_SIZE=Math.max(18,Math.min(50,HEX_SIZE*(nd/pinchDist)));
+    if(pinchDist>0) HEX_SIZE=Math.max(12,Math.min(60,HEX_SIZE*(nd/pinchDist)));
     pinchDist=nd; drawMap();
   }
 },{passive:false});
@@ -6234,7 +6265,15 @@ canvas.addEventListener('touchend',e=>{
     }
   }
   isDragging=false;
+  // Reset pinchDist when all fingers lift so stale distance never seeds next pinch
+  if(e.touches.length<2) pinchDist=0;
 },{passive:false});
+
+// iOS Safari intercepts pinch gestures for browser zoom via its own gesture events.
+// Prevent those so our canvas pinch-to-zoom gets the touches unobstructed.
+document.addEventListener('gesturestart',  e=>e.preventDefault(), {passive:false});
+document.addEventListener('gesturechange', e=>e.preventDefault(), {passive:false});
+document.addEventListener('gestureend',    e=>e.preventDefault(), {passive:false});
 
 function animMap() {
   camX+=(tCamX-camX)*0.15; camY+=(tCamY-camY)*0.15;
@@ -6336,19 +6375,36 @@ async function doRestart() {
 document.addEventListener('click', initAudio, { once: true });
 document.addEventListener('touchstart', initAudio, { once: true });
 
-// iOS Safari: AudioContext suspends whenever the app is backgrounded.
-// Resume it via every plausible re-entry path.
+// iOS Safari: AudioContext suspends (or sometimes closes) when the app is backgrounded.
+// tryResumeAudio handles all three cases: running (no-op), suspended (resume),
+// closed (full reinit).  All re-entry paths funnel through it.
 function tryResumeAudio() {
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {});
+  if (!audioCtx) return;
+  if (audioCtx.state === 'running') return;
+
+  if (audioCtx.state === 'closed') {
+    // iOS killed the context entirely — tear down and recreate
+    audioStarted = false; ambientNodes = []; masterGainNode = null; audioCtx = null;
+    initAudio();
+    return;
   }
+
+  // state === 'suspended'
+  audioCtx.resume().then(() => {
+    // After resume, if the gain node is gone the ambience chain was lost — restart it
+    if (!masterGainNode) startAmbience();
+  }).catch(() => {
+    // resume() rejected (rare) — full reinit as fallback
+    audioStarted = false; ambientNodes = []; masterGainNode = null; audioCtx = null;
+    initAudio();
+  });
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') tryResumeAudio();
 });
 window.addEventListener('focus',    tryResumeAudio);
 window.addEventListener('pageshow', tryResumeAudio);   // bfcache restore on iOS
-// Persistent touch listener — most reliable iOS trigger since it counts as a user gesture
+// touchstart counts as a user gesture — most reliable iOS trigger
 document.addEventListener('touchstart', tryResumeAudio, { passive: true });
 
 // ESC cancels build / move placement modes
