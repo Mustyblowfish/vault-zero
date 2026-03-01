@@ -1485,13 +1485,14 @@ body::before {
   .vb-room-q      { font-size: 18px; }
   .vb-room-result { font-size: 9px; line-height: 1.5; }
   .vb-scav-hint   { font-size: 11px; }
-  #vb-scav-continue { font-size: 12px; letter-spacing: 2px; padding: 12px 0; }
+  .vb-hs-track    { height: 56px; }
+  .vb-hs-handle   { width: 60px; font-size: 12px; }
+  .vb-hs-fill     { width: 60px; }
 
   /* Comms module */
   .vb-reqs        { gap: 6px; }
   .vb-req-row     { font-size: 12px; gap: 8px; }
   .vb-req-check   { width: 16px; height: 16px; font-size: 11px; }
-  #vb-comms-btn   { font-size: 12px; letter-spacing: 2px; padding: 12px 0; margin-top: 8px; }
 
   /* Intro/briefing overlay — compress so BEGIN SEQUENCE is always visible */
   #vb-intro {
@@ -1705,19 +1706,57 @@ body::before {
   font-size: 11px; letter-spacing: 1px;
   color: var(--green-dim); text-align: center;
 }
-#vb-scav-continue {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 13px; letter-spacing: 3px; padding: 11px 0;
-  width: 100%; margin-top: auto;
-  background: rgba(0,180,80,0.06); border: 1px solid var(--green);
-  color: var(--green); cursor: pointer; transition: all 0.3s;
-  animation: vb-scav-cont-glow 1.4s ease-in-out infinite;
+/* locked room — too many already opened */
+.vb-room.vb-room-locked {
+  opacity: 0.28; cursor: not-allowed; border-color: #000d00;
 }
-#vb-scav-continue:hover { background: rgba(0,255,65,0.12); }
-@keyframes vb-scav-cont-glow {
-  0%,100% { box-shadow: 0 0 0 rgba(0,255,65,0); }
-  50%      { box-shadow: 0 0 18px rgba(0,255,65,0.35); }
+.vb-room.vb-room-locked::after { display: none; }
+
+/* ─────────────────────────────────────
+   HORIZONTAL DRAG SLIDER — scav + comms
+   ───────────────────────────────────── */
+.vb-hslider {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-top: auto; padding-top: 14px; user-select: none;
 }
+.vb-hs-label {
+  font-size: 11px; letter-spacing: 2px;
+  color: var(--mc, var(--green-dim)); text-align: center;
+}
+.vb-hs-track {
+  position: relative; height: 52px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--mc, var(--green-dark));
+  overflow: hidden; transition: border-color 0.3s;
+}
+.vb-hs-track::before {
+  content: '▶  ▶  ▶  ▶  ▶  ▶  ▶  ▶';
+  position: absolute; top: 50%; transform: translateY(-50%);
+  left: 72px; right: 4px; overflow: hidden;
+  font-size: 9px; letter-spacing: 6px;
+  color: var(--mc, var(--green)); opacity: 0.15;
+  pointer-events: none; white-space: nowrap;
+}
+.vb-hs-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 56px; background: var(--mc, var(--green)); opacity: 0.18;
+  pointer-events: none;
+}
+.vb-hs-handle {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 56px;
+  background: rgba(0,0,0,0.8);
+  border-right: 2px solid var(--mc, var(--green));
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab; touch-action: none;
+  font-size: 13px; letter-spacing: 1px;
+  color: var(--mc, var(--green));
+}
+.vb-hs-handle:active { cursor: grabbing; }
+.vb-hslider.vb-hs-done .vb-hs-track {
+  border-color: var(--mc, var(--green));
+  box-shadow: 0 0 10px rgba(0,0,0,0.4);
+}
+.vb-hslider.vb-hs-locked { opacity: 0.28; pointer-events: none; }
 
 /* ─────────────────────────────────────
    COMMS MODULE — PCB assembly
@@ -1742,21 +1781,6 @@ body::before {
 .vb-req-check.met { border-color: #cc55ff; color: #cc55ff; box-shadow: 0 0 6px rgba(204,85,255,0.3); }
 .vb-req-label { color: #aa55dd; transition: color 0.35s; }
 .vb-req-row.met .vb-req-label { color: #cc55ff; }
-#vb-comms-btn {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 11px; letter-spacing: 3px; padding: 9px 0;
-  width: 100%; margin-top: auto;
-  background: rgba(80,0,120,0.08); border: 1px solid #550088;
-  color: #7722aa; cursor: not-allowed; transition: all 0.3s;
-}
-#vb-comms-btn.vb-ready {
-  border-color: #cc55ff; color: #cc55ff; cursor: pointer;
-  animation: vb-violet-glow 1.3s ease-in-out infinite;
-}
-@keyframes vb-violet-glow {
-  0%,100% { box-shadow: 0 0 0 rgba(204,85,255,0); }
-  50%      { box-shadow: 0 0 18px rgba(204,85,255,0.4); }
-}
 
 /* ── outcome flash ── */
 .vb-outcome {
@@ -2247,13 +2271,19 @@ body::before {
         <div class="vbm-hdr">
           <span class="vbm-icon">⊞</span>
           <span class="vbm-title">3 · SCAVENGE VAULT</span>
-          <span class="vbm-tag" id="vbs-scav">6 ROOMS</span>
+          <span class="vbm-tag" id="vbs-scav">0/3 SEARCHED</span>
         </div>
         <div class="vbm-body">
-          <div class="vb-instr">Search rooms to collect starting supplies — tap any door to open it</div>
+          <div class="vb-instr">Search up to 3 rooms to collect starting supplies</div>
           <div id="vb-room-grid"><!-- built by JS --></div>
           <div class="vb-scav-hint" id="vb-scav-hint">each room yields different supplies</div>
-          <button id="vb-scav-continue" onclick="vbScavContinue()" style="display:none">[ CONTINUE → COMMS ]</button>
+          <div class="vb-hslider" id="vb-scav-slider" style="display:none">
+            <div class="vb-hs-label">▶ SEAL VAULT DOOR</div>
+            <div class="vb-hs-track">
+              <div class="vb-hs-fill"></div>
+              <div class="vb-hs-handle">▶▶</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2276,7 +2306,13 @@ body::before {
               <span class="vb-req-label">WATER COOLANT ONLINE</span>
             </div>
           </div>
-          <button id="vb-comms-btn" disabled onclick="vbDoComms()">[ ASSEMBLE UNIT ]</button>
+          <div class="vb-hslider vb-hs-locked" id="vb-comms-slider">
+            <div class="vb-hs-label">▶ ASSEMBLE COMMS UNIT</div>
+            <div class="vb-hs-track">
+              <div class="vb-hs-fill"></div>
+              <div class="vb-hs-handle">▶▶</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -6634,6 +6670,7 @@ function resumeFromSave() {
 
 // Sequential step IDs in order
 const VB_STEP_IDS = ['vbm-power', 'vbm-water', 'vbm-scav', 'vbm-comms'];
+const VB_MAX_ROOMS = 3;
 let vbCurrentStep = 0;
 
 // Room definitions — id, display name, icon, yields, survivor flag
@@ -6653,6 +6690,72 @@ let vbState = {
   powerDone:false, waterDone:false, commsDone:false,
   food:0, water:0, metal:0, wood:0, survivor:false,
 };
+
+// ── Horizontal drag slider — init (once) and reset (each showVaultBoot) ─────
+function vbInitHSlider(sliderId, onComplete) {
+  const slider = document.getElementById(sliderId);
+  if (!slider || slider._vbSliderInited) return;
+  slider._vbSliderInited = true;
+  slider._vbSliderDone   = false;
+  const handle = slider.querySelector('.vb-hs-handle');
+  const fill   = slider.querySelector('.vb-hs-fill');
+  const track  = slider.querySelector('.vb-hs-track');
+  const THRESHOLD = 0.82;
+
+  function setPos(x) {
+    const hw  = handle.offsetWidth;
+    const max = track.offsetWidth - hw;
+    if (max <= 0) return 0;
+    const c = Math.max(0, Math.min(x, max));
+    handle.style.transform = `translateX(${c}px)`;
+    fill.style.width = `${c + hw}px`;
+    return c / max;
+  }
+
+  handle.addEventListener('pointerdown', e => {
+    if (slider._vbSliderDone || slider.classList.contains('vb-hs-locked')) return;
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    handle.style.transition = 'none'; fill.style.transition = 'none';
+    setPos(0);
+    handle._dragStartX = e.clientX;
+  });
+
+  handle.addEventListener('pointermove', e => {
+    if (!handle.hasPointerCapture(e.pointerId)) return;
+    const ratio = setPos(e.clientX - handle._dragStartX);
+    if (ratio >= THRESHOLD) {
+      handle.releasePointerCapture(e.pointerId);
+      slider._vbSliderDone = true;
+      handle.style.transition = 'transform 0.2s ease-out';
+      fill.style.transition   = 'width 0.2s ease-out';
+      setPos(track.offsetWidth - handle.offsetWidth);
+      slider.classList.add('vb-hs-done');
+      setTimeout(onComplete, 250);
+    }
+  });
+
+  function snapBack(e) {
+    if (!handle.hasPointerCapture(e.pointerId)) return;
+    handle.releasePointerCapture(e.pointerId);
+    handle.style.transition = 'transform 0.35s cubic-bezier(0.4,0,0.2,1)';
+    fill.style.transition   = 'width 0.35s cubic-bezier(0.4,0,0.2,1)';
+    setPos(0);
+  }
+  handle.addEventListener('pointerup',     snapBack);
+  handle.addEventListener('pointercancel', snapBack);
+}
+
+function vbResetHSlider(sliderId) {
+  const slider = document.getElementById(sliderId);
+  if (!slider) return;
+  slider._vbSliderDone = false;
+  slider.classList.remove('vb-hs-done');
+  const handle = slider.querySelector('.vb-hs-handle');
+  const fill   = slider.querySelector('.vb-hs-fill');
+  if (handle) { handle.style.transition = 'none'; handle.style.transform = 'translateX(0)'; }
+  if (fill && handle) { fill.style.transition = 'none'; fill.style.width = handle.offsetWidth + 'px'; }
+}
 
 // ── Entry point ────────────────────────────────────────────────
 function showVaultBoot() {
@@ -6682,7 +6785,7 @@ function showVaultBoot() {
     const t = document.getElementById(`vbs-${k}`);
     if (t) { t.textContent = 'OFFLINE'; t.className = 'vbm-tag'; }
   });
-  document.getElementById('vbs-scav').textContent = '6 ROOMS';
+  document.getElementById('vbs-scav').textContent = '0/3 SEARCHED';
   document.getElementById('vbs-scav').className = 'vbm-tag';
 
   // Reset modules: only power is active
@@ -6715,10 +6818,7 @@ function showVaultBoot() {
       FULL REPAIR<span class="vb-wcost" id="vb-wc-full">+20 WATER</span>
     </button>`;
 
-  // Reset comms panel
-  const cb = document.getElementById('vb-comms-btn');
-  cb.disabled = true; cb.classList.remove('vb-ready');
-  cb.textContent = '[ ASSEMBLE UNIT ]'; cb.style.cssText = '';
+  // Reset requirement checks
   ['vbrc-pwr','vbrc-wat'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.textContent = '✗'; el.classList.remove('met'); }
@@ -6727,9 +6827,15 @@ function showVaultBoot() {
     document.getElementById(id)?.classList.remove('met');
   });
 
-  // Reset CONTINUE button
-  const cont = document.getElementById('vb-scav-continue');
-  if (cont) cont.style.display = 'none';
+  // Init & reset sliders (init is guarded — safe to call each time)
+  vbInitHSlider('vb-scav-slider', () => vbScavContinue());
+  vbInitHSlider('vb-comms-slider', () => vbDoComms());
+  vbResetHSlider('vb-scav-slider');
+  vbResetHSlider('vb-comms-slider');
+  const scavSl = document.getElementById('vb-scav-slider');
+  if (scavSl) scavSl.style.display = 'none';
+  const commsSl = document.getElementById('vb-comms-slider');
+  if (commsSl) commsSl.classList.add('vb-hs-locked');
 
   // Reset progress indicator
   vbUpdateProgress(0);
@@ -6931,7 +7037,7 @@ function vbBuildRooms() {
 }
 
 function vbSearchRoom(room, el) {
-  if (el.classList.contains('vb-opened')) return;
+  if (el.classList.contains('vb-opened') || el.classList.contains('vb-room-locked')) return;
   sndScavRoom();
   const player   = G.people.find(p => p.isPlayer);
   const isScout  = player?.role === 'scout';
@@ -6967,11 +7073,14 @@ function vbSearchRoom(room, el) {
   // Update tag
   const opened = document.querySelectorAll('.vb-room.vb-opened').length;
   const tag = document.getElementById('vbs-scav');
-  if (tag) tag.textContent = `${opened}/6 SEARCHED`;
+  if (tag) tag.textContent = `${opened}/${VB_MAX_ROOMS} SEARCHED`;
 
-  // Show CONTINUE button after first room searched
-  const cont = document.getElementById('vb-scav-continue');
-  if (cont && cont.style.display === 'none') cont.style.display = '';
+  // When limit reached: lock remaining rooms and reveal the slider
+  if (opened >= VB_MAX_ROOMS) {
+    document.querySelectorAll('.vb-room:not(.vb-opened)').forEach(r => r.classList.add('vb-room-locked'));
+    const sl = document.getElementById('vb-scav-slider');
+    if (sl) sl.style.display = '';
+  }
 }
 
 // ── COMMS ──────────────────────────────────────────────────────
@@ -6988,11 +7097,10 @@ function vbUpdateCommsPanel() {
     if (row) row.classList.toggle('met', met);
   });
 
-  // Build button
-  const btn = document.getElementById('vb-comms-btn');
-  if (btn && !vbState.commsDone) {
-    btn.disabled = !allMet;
-    btn.classList.toggle('vb-ready', allMet);
+  // Unlock comms slider when all requirements met
+  const slider = document.getElementById('vb-comms-slider');
+  if (slider && !vbState.commsDone) {
+    slider.classList.toggle('vb-hs-locked', !allMet);
   }
 }
 
@@ -7003,18 +7111,18 @@ function vbDoComms() {
 
   vbState.commsDone = true;  // set immediately so game-over check is safe
 
-  const btn = document.getElementById('vb-comms-btn');
-  btn.disabled = true; btn.classList.remove('vb-ready');
+  const commsSl = document.getElementById('vb-comms-slider');
+  const commsSlLabel = commsSl?.querySelector('.vb-hs-label');
+  if (commsSl) commsSl.classList.add('vb-hs-locked');
 
-  // Animated assembly countdown
+  // Animated assembly countdown shown in slider label
   let tick = 0;
-  const seq = ['[ ASSEMBLING     ]','[ ASSEMBLING .   ]','[ ASSEMBLING ..  ]','[ ASSEMBLING ... ]'];
-  const iv = setInterval(() => { btn.textContent = seq[tick++ % seq.length]; }, 280);
+  const seq = ['ASSEMBLING ···','ASSEMBLING ·· ','ASSEMBLING ·  ','ASSEMBLING    '];
+  const iv = setInterval(() => { if (commsSlLabel) commsSlLabel.textContent = seq[tick++ % seq.length]; }, 280);
 
   setTimeout(() => {
     clearInterval(iv);
-    btn.textContent = '▣ COMMS: ONLINE';
-    btn.style.cssText = 'border-color:#cc55ff;color:#cc55ff;cursor:default;';
+    if (commsSlLabel) commsSlLabel.textContent = '▣ COMMS UNIT: ONLINE';
     const tag = document.getElementById('vbs-comms');
     tag.textContent = 'ONLINE'; tag.classList.add('online');
     const mod = document.getElementById('vbm-comms');
