@@ -1192,15 +1192,39 @@ body::before {
 /* danger warning in header */
 .enc-danger-warn { color: #ff6600; font-size: 9px; letter-spacing: 3px; }
 
-/* ── Gear chips on roster card ── */
-.roster-person-gear { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+/* ── Gear slots on roster card ── */
+.roster-gear-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; letter-spacing: 1px; line-height: 1.9;
+}
+.roster-gear-slot-label { color: #003300; width: 46px; flex-shrink: 0; }
+.roster-gear-item-name  { flex: 1; }
+.gear-empty   { color: #002200; }
+.gear-weapon  { color: #cc6600; }
+.gear-armour  { color: #00aa77; }
+.gear-tool    { color: #0077cc; }
+.roster-gear-drop-btn {
+  background: none; border: 1px solid #330000; color: #664444;
+  font-size: 11px; padding: 0 5px; cursor: pointer; line-height: 1.4;
+  font-family: 'Share Tech Mono', monospace;
+}
+.roster-gear-drop-btn:hover { border-color: var(--red); color: var(--red); }
+.roster-stash-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+  margin-top: 4px; padding-top: 4px; border-top: 1px dashed #001a00;
+}
+.roster-stash-label {
+  font-size: 9px; color: #003300; letter-spacing: 2px; width: 40px; flex-shrink: 0;
+}
 .gear-chip {
   font-size: 9px; letter-spacing: 1px; padding: 2px 6px;
-  border-radius: 2px; border: 1px solid;
+  border-radius: 2px; border: 1px solid; cursor: default;
 }
-.gear-weapon { border-color: #442200; color: #cc6600; background: rgba(60,20,0,0.4); }
-.gear-armour { border-color: #003322; color: #00aa77; background: rgba(0,40,25,0.4); }
-.gear-tool   { border-color: #002244; color: #0077cc; background: rgba(0,20,50,0.4); }
+.roster-stash-chip { cursor: pointer; font-family: 'Share Tech Mono', monospace; }
+.roster-stash-chip:hover { opacity: 0.75; }
+.gear-chip.gear-weapon { border-color: #442200; color: #cc6600; background: rgba(60,20,0,0.4); }
+.gear-chip.gear-armour { border-color: #003322; color: #00aa77; background: rgba(0,40,25,0.4); }
+.gear-chip.gear-tool   { border-color: #002244; color: #0077cc; background: rgba(0,20,50,0.4); }
 
 /* ── Game Over overlay ── */
 #game-over {
@@ -3574,7 +3598,7 @@ function generatePerson(forceRole) {
     starvingDays: 0,
     wounds: 0,
     fatigue: 0,
-    gear: [],
+    gear: { weapon: null, armour: null, tool: null },
     stats: {
       speed:  Math.max(1, Math.min(5, def.speed  + variance())),
       recon:  Math.max(1, Math.min(5, def.recon  + variance())),
@@ -4550,8 +4574,8 @@ const ITEMS = {
 
 // — Gear helpers —
 function gearBonus(person, stat) {
-  if (!person?.gear?.length) return 0;
-  return person.gear.reduce((n, id) => n + (ITEMS[id]?.bonus?.[stat] || 0), 0);
+  if (!person?.gear) return 0;
+  return Object.values(person.gear).reduce((n, id) => n + (id ? (ITEMS[id]?.bonus?.[stat] || 0) : 0), 0);
 }
 function effectiveStat(person, stat) {
   return (person?.stats?.[stat] || 0) + gearBonus(person, stat);
@@ -4568,17 +4592,37 @@ function rollCheck(person, stat, vs) {
   return Math.random() < eff / (eff + vs);
 }
 function personHasTag(person, tag) {
-  if (!person?.gear?.length) return false;
-  return person.gear.some(id => ITEMS[id]?.tags?.includes(tag));
+  if (!person?.gear) return false;
+  return Object.values(person.gear).some(id => id && ITEMS[id]?.tags?.includes(tag));
 }
+// Equip an item to the correct slot. Returns displaced item id (or null) for UI feedback.
 function giveItem(person, itemId) {
-  if (!person) return;
-  if (person.gear.length < 3) {
-    person.gear.push(itemId);
-  } else {
-    G.stash = G.stash || [];
-    G.stash.push(itemId);
-  }
+  const def = ITEMS[itemId];
+  if (!def) return null;
+  if (!person) { G.stash.push(itemId); return null; }
+  const slot = def.type; // 'weapon' | 'armour' | 'tool'
+  const displaced = person.gear[slot] || null;
+  person.gear[slot] = itemId;
+  if (displaced) G.stash.push(displaced);
+  return displaced;
+}
+// Drop gear slot back to stash
+function dropGear(personId, slot) {
+  const p = G.people.find(pp => pp.id === personId);
+  if (!p || !p.gear[slot]) return;
+  G.stash.push(p.gear[slot]);
+  p.gear[slot] = null;
+  openRosterOverlay();
+}
+// Equip a stash item onto a person (removing it from stash first)
+function equipFromStash(personId, itemId) {
+  const p = G.people.find(pp => pp.id === personId);
+  if (!p) return;
+  const idx = G.stash.indexOf(itemId);
+  if (idx < 0) return;
+  G.stash.splice(idx, 1);
+  giveItem(p, itemId); // may push displaced back to stash — that's fine
+  openRosterOverlay();
 }
 
 const ENCOUNTER_CHANCE = {
@@ -6203,8 +6247,10 @@ function encApplyOutcome(outcome, textEl) {
     if (!itemId) return;
     const def = ITEMS[itemId];
     if (!def) return;
-    giveItem(p, itemId);
-    parts.push(`+ ${def.label}`);
+    const displaced = giveItem(p, itemId);
+    let msg = `+ ${def.label}`;
+    if (displaced && ITEMS[displaced]) msg += ` · ${ITEMS[displaced].label} → STASH`;
+    parts.push(msg);
   });
 
   if (outcome.wound && p) {
@@ -6809,7 +6855,6 @@ function openRosterOverlay() {
         <div class="roster-person-stats">
           SPD ${statBar(p.stats.speed)}  RCN ${statBar(p.stats.recon)}  CMB ${statBar(p.stats.combat)}  MRL ${statBar(p.stats.morale)}
         </div>
-        ${(p.gear&&p.gear.length) ? `<div class="roster-person-gear">${p.gear.map(id=>{const it=ITEMS[id];return it?`<span class="gear-chip gear-${it.type}">${it.label}</span>`:''}).join('')}</div>` : ''}
         ${(()=>{
           const fat = p.fatigue||0;
           const fatColor = fat >= MAX_FATIGUE ? 'var(--red)' : fat >= MAX_FATIGUE-1 ? '#ffb000' : '#003a00';
@@ -6818,6 +6863,57 @@ function openRosterOverlay() {
         })()}
         ${(p.wounds||0)>0 ? `<div style="font-size:11px;color:var(--red);letter-spacing:1px;margin-top:2px;">WOUNDS: ${'●'.repeat(p.wounds||0)}${'○'.repeat(Math.max(0,3-(p.wounds||0)))}</div>` : ''}`;
       div.appendChild(info);
+
+      // Gear slots (DOM-built so we can attach listeners)
+      const gearSec = document.createElement('div');
+      gearSec.className = 'roster-gear-section';
+      gearSec.style.cssText = 'margin-top:6px;padding-top:5px;border-top:1px solid #001800;';
+      const slots = ['weapon','armour','tool'];
+      slots.forEach(slot => {
+        const row = document.createElement('div');
+        row.className = 'roster-gear-row';
+        const slotLbl = document.createElement('span');
+        slotLbl.className = 'roster-gear-slot-label';
+        slotLbl.textContent = slot.toUpperCase();
+        row.appendChild(slotLbl);
+        const itemId = p.gear[slot];
+        const itemDef = itemId ? ITEMS[itemId] : null;
+        const itemLbl = document.createElement('span');
+        itemLbl.className = 'roster-gear-item-name' + (itemDef ? ` gear-${slot}` : ' gear-empty');
+        itemLbl.textContent = itemDef ? itemDef.label : '—';
+        row.appendChild(itemLbl);
+        if (itemDef) {
+          const dropBtn = document.createElement('button');
+          dropBtn.className = 'roster-gear-drop-btn';
+          dropBtn.textContent = '−';
+          dropBtn.title = 'unequip to stash';
+          dropBtn.addEventListener('click', () => dropGear(p.id, slot));
+          row.appendChild(dropBtn);
+        }
+        gearSec.appendChild(row);
+      });
+      // Stash items available to this person
+      const stashIds = (G.stash || []).filter(id => ITEMS[id]);
+      if (stashIds.length) {
+        const stashRow = document.createElement('div');
+        stashRow.className = 'roster-stash-row';
+        const stashLbl = document.createElement('span');
+        stashLbl.className = 'roster-stash-label';
+        stashLbl.textContent = 'STASH';
+        stashRow.appendChild(stashLbl);
+        stashIds.forEach(itemId => {
+          const def = ITEMS[itemId];
+          const chip = document.createElement('button');
+          chip.className = `roster-stash-chip gear-chip gear-${def.type}`;
+          chip.textContent = def.label;
+          chip.title = 'equip';
+          chip.addEventListener('click', () => equipFromStash(p.id, itemId));
+          stashRow.appendChild(chip);
+        });
+        gearSec.appendChild(stashRow);
+      }
+      div.appendChild(gearSec);
+
       body.appendChild(div);
 
       // Draw face AFTER appended to DOM
