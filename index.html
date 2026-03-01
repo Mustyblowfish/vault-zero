@@ -4609,7 +4609,7 @@ function giveItem(person, itemId) {
 // Drop gear slot back to stash
 function dropGear(personId, slot) {
   const p = G.people.find(pp => pp.id === personId);
-  if (!p || !p.gear[slot]) return;
+  if (!p || !p.gear || !p.gear[slot]) return;
   G.stash.push(p.gear[slot]);
   p.gear[slot] = null;
   openRosterOverlay();
@@ -6868,6 +6868,7 @@ function openRosterOverlay() {
       gearSec.className = 'roster-gear-section';
       gearSec.style.cssText = 'margin-top:6px;padding-top:5px;border-top:1px solid #001800;';
       const slots = ['weapon','armour','tool'];
+      const pGear = p.gear || { weapon:null, armour:null, tool:null };
       slots.forEach(slot => {
         const row = document.createElement('div');
         row.className = 'roster-gear-row';
@@ -6875,7 +6876,7 @@ function openRosterOverlay() {
         slotLbl.className = 'roster-gear-slot-label';
         slotLbl.textContent = slot.toUpperCase();
         row.appendChild(slotLbl);
-        const itemId = p.gear[slot];
+        const itemId = pGear[slot];
         const itemDef = itemId ? ITEMS[itemId] : null;
         const itemLbl = document.createElement('span');
         itemLbl.className = 'roster-gear-item-name' + (itemDef ? ` gear-${slot}` : ' gear-empty');
@@ -7251,6 +7252,7 @@ function saveGame() {
     })),
     nextEnemyId: G.nextEnemyId,
     people: G.people,
+    stash: G.stash || [],
     resourceHistory: G.resourceHistory,
   };
   try {
@@ -7285,7 +7287,8 @@ async function loadGame() {
     G.scoutCooldown = false;
     G.enemyUnits  = (s.enemyUnits || []).map(e => ({ ...e, moving:false, animX:null, animY:null }));
     G.nextEnemyId = s.nextEnemyId || 1;
-    G.people = (s.people || []).map(p => ({ wounds:0, ...p }));
+    G.people = (s.people || []).map(p => ({ wounds:0, gear: { weapon:null, armour:null, tool:null }, ...p }));
+    G.stash  = s.stash || [];
     G.resourceHistory = s.resourceHistory || { power:[], food:[], water:[], population:[] };
     return true;
   } catch(e) { return false; }
