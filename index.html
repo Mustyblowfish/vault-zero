@@ -2004,7 +2004,7 @@ body::before {
       <div class="stat">TURN <span class="val" id="s-turn">--</span></div>
     </div>
     <div id="phase-tag">INITIALISING</div>
-    <button id="dev-bypass-btn" onclick="DEV_SKIP=true;devSkipToMap()" style="background:rgba(80,0,0,0.5);border:1px solid #660000;color:#cc2222;font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 7px;cursor:pointer;letter-spacing:1px;flex-shrink:0;" title="DEV — skip intro">TEST</button>
+    <button id="dev-bypass-btn" onclick="devSkipToVaultBoot()" style="background:rgba(80,0,0,0.5);border:1px solid #660000;color:#cc2222;font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 7px;cursor:pointer;letter-spacing:1px;flex-shrink:0;" title="DEV — skip to vault boot">TEST</button>
     <button id="menu-btn" onclick="toggleMenu()">[ MENU ]</button>
   </div>
 
@@ -2697,6 +2697,171 @@ function playClick() {
   env.connect(audioCtx.destination);
   osc.start();
   osc.stop(audioCtx.currentTime + 0.05);
+}
+
+// ══════════════════════════════════════════════
+//  BOOT-SEQUENCE SFX
+// ══════════════════════════════════════════════
+
+// Shared output gain for all SFX (bypasses master ambience gain but respects mute)
+function sfxOut(vol) {
+  if (!audioCtx || isMuted) return null;
+  const g = audioCtx.createGain();
+  g.gain.value = vol;
+  g.connect(audioCtx.destination);
+  return g;
+}
+
+// Generic pitched blip (square wave)
+function sndBlip(freq, dur = 0.09, vol = 0.35) {
+  const out = sfxOut(vol); if (!out) return;
+  const osc = audioCtx.createOscillator();
+  const env = audioCtx.createGain();
+  osc.type = 'square'; osc.frequency.value = freq;
+  env.gain.setValueAtTime(0.9, audioCtx.currentTime);
+  env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(env); env.connect(out);
+  osc.start(); osc.stop(audioCtx.currentTime + dur + 0.02);
+}
+
+// Breaker toggle: noise burst + pitched click (tone depends on on/off)
+function sndBreaker(isOn) {
+  const out = sfxOut(0.45); if (!out) return;
+  const bufSz = Math.floor(audioCtx.sampleRate * 0.05);
+  const buf = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufSz; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / bufSz);
+  const src = audioCtx.createBufferSource(); src.buffer = buf;
+  const fil = audioCtx.createBiquadFilter(); fil.type = 'bandpass';
+  fil.frequency.value = isOn ? 900 : 420; fil.Q.value = 1.5;
+  const env = audioCtx.createGain(); env.gain.value = 0.6;
+  src.connect(fil); fil.connect(env); env.connect(out); src.start();
+  setTimeout(() => sndBlip(isOn ? 720 : 360, 0.07, 0.3), 15);
+}
+
+// Power engage: big electrical surge sweep (sawtooth + harmonic)
+function sndPowerEngage() {
+  const out = sfxOut(0.5); if (!out) return;
+  [[55, 880, 'sawtooth', 0.35], [110, 1760, 'sine', 0.18]].forEach(([f0, f1, type, vol]) => {
+    const osc = audioCtx.createOscillator();
+    const env = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(f0, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(f1, audioCtx.currentTime + 0.55);
+    env.gain.setValueAtTime(vol, audioCtx.currentTime);
+    env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.55);
+    osc.connect(env); env.connect(out);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+  });
+}
+
+// Water choice: hydraulic whoosh (descending sine + entry blip)
+function sndWaterChoice() {
+  const out = sfxOut(0.38); if (!out) return;
+  const osc = audioCtx.createOscillator(); const env = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(660, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.28);
+  env.gain.setValueAtTime(0.35, audioCtx.currentTime);
+  env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.28);
+  osc.connect(env); env.connect(out); osc.start(); osc.stop(audioCtx.currentTime + 0.32);
+  sndBlip(440, 0.055, 0.22);
+}
+
+// Scavenge room: metallic scrape (band-pass noise burst)
+function sndScavRoom() {
+  const out = sfxOut(0.45); if (!out) return;
+  const bufSz = Math.floor(audioCtx.sampleRate * 0.2);
+  const buf = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufSz; i++) {
+    const env = (i < bufSz * 0.1) ? i / (bufSz * 0.1) : 1 - (i - bufSz * 0.1) / (bufSz * 0.9);
+    d[i] = (Math.random() * 2 - 1) * env;
+  }
+  const src = audioCtx.createBufferSource(); src.buffer = buf;
+  const fil = audioCtx.createBiquadFilter(); fil.type = 'bandpass';
+  fil.frequency.value = 320; fil.Q.value = 0.9;
+  const env2 = audioCtx.createGain(); env2.gain.value = 0.6;
+  src.connect(fil); fil.connect(env2); env2.connect(out); src.start();
+}
+
+// Comms assemble: ascending electronic chord
+function sndCommsBtn() {
+  const out = sfxOut(0.38); if (!out) return;
+  [294, 370, 494, 659, 880].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator(); const env = audioCtx.createGain();
+    osc.type = 'square'; osc.frequency.value = freq;
+    const t = audioCtx.currentTime + i * 0.06;
+    env.gain.setValueAtTime(0.22, t);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    osc.connect(env); env.connect(out); osc.start(t); osc.stop(t + 0.1);
+  });
+}
+
+// Terminal action buttons — different frequencies per button
+function sndTermBtn(freq) { sndBlip(freq, 0.12, 0.42); }
+
+// Access Vault Systems: dramatic rising chord
+function sndVaultAccess() {
+  const out = sfxOut(0.48); if (!out) return;
+  [[110, 440, 'sawtooth'], [220, 880, 'sine'], [330, 1320, 'sine']].forEach(([f0, f1, type], i) => {
+    const osc = audioCtx.createOscillator(); const env = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(f0, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(f1, audioCtx.currentTime + 0.5);
+    env.gain.setValueAtTime(0.22 - i * 0.05, audioCtx.currentTime);
+    env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.55);
+    osc.connect(env); env.connect(out); osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+  });
+}
+
+// BEGIN SEQUENCE: firm thunk + rising blip
+function sndBeginSeq() {
+  sndBlip(160, 0.14, 0.5);
+  setTimeout(() => sndBlip(500, 0.09, 0.32), 90);
+}
+
+// Map boot scan: slow rising sweep played during the reveal wipe
+function sndMapBootScan() {
+  const out = sfxOut(0.22); if (!out) return;
+  const osc = audioCtx.createOscillator(); const env = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+  osc.frequency.linearRampToValueAtTime(900, audioCtx.currentTime + 2.8);
+  env.gain.setValueAtTime(0.18, audioCtx.currentTime);
+  env.gain.setValueAtTime(0.18, audioCtx.currentTime + 2.3);
+  env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 3.1);
+  osc.connect(env); env.connect(out); osc.start(); osc.stop(audioCtx.currentTime + 3.2);
+}
+
+// ── Lever drone (oscillator kept alive during drag, pitch follows progress) ──
+let sbootLvOsc  = null;
+let sbootLvGain = null;
+
+function sndLeverStart() {
+  if (!audioCtx || isMuted) return;
+  if (sbootLvOsc) sndLeverStop();
+  const out = audioCtx.createGain(); out.gain.value = 0;
+  out.connect(audioCtx.destination);
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sawtooth'; osc.frequency.value = 55;
+  osc.connect(out); osc.start();
+  sbootLvOsc = osc; sbootLvGain = out;
+}
+
+function sndLeverUpdate(p) {
+  if (!sbootLvOsc || !sbootLvGain || !audioCtx) return;
+  const t = audioCtx.currentTime;
+  sbootLvOsc.frequency.setTargetAtTime(55 + p * 920, t, 0.02);
+  sbootLvGain.gain.setTargetAtTime(p > 0.02 ? 0.14 : 0, t, 0.05);
+}
+
+function sndLeverStop(engage = false) {
+  if (!sbootLvGain) return;
+  sbootLvGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.25);
+  const osc = sbootLvOsc; sbootLvOsc = null; sbootLvGain = null;
+  setTimeout(() => { try { osc?.stop(); } catch(e) {} }, 350);
+  if (engage) setTimeout(sndPowerEngage, 60);
 }
 
 function playMoveSound() {
@@ -3616,6 +3781,7 @@ function startGame() {
 //  PHASE 1: RESTORE SYSTEMS
 // ══════════════════════════════════════════════
 function restorePower() {
+  sndTermBtn(220);
   G.phase = 1;
   G.power = 12;
   G.food = 8;
@@ -3645,6 +3811,7 @@ function restorePower() {
 
 function restoreWater() {
   if (G.systems.water) return;
+  sndTermBtn(330);
   G.systems.water = true;
   G.power += 8; updateHUD();
   // Lock comms while water sequence plays — re-enable when done with brighter glow
@@ -3666,6 +3833,7 @@ function restoreWater() {
 
 function restoreComms() {
   if (G.systems.comms) return;
+  sndTermBtn(440);
   G.systems.comms = true;
   G.power += 6; updateHUD();
   // Lock water while comms sequence plays — re-enable when done with brighter glow
@@ -4416,7 +4584,7 @@ function w2s(wx,wy){return{x:wx-camX+W2/2,y:wy-camY+H2/2};}
 function s2w(sx,sy){return{x:sx+camX-W2/2,y:sy+camY-H2/2};}
 
 function drawMap() {
-  if (!G.mapUnlocked) return;
+  if (!G.mapUnlocked || mapBooting) return;
   ctx2.clearRect(0,0,W2,H2);
   ctx2.fillStyle='#020602';
   ctx2.fillRect(0,0,W2,H2);
@@ -6266,6 +6434,38 @@ function devSkipToMap() {
   document.getElementById('dev-bypass-btn').style.display='none';
 }
 
+function devSkipToVaultBoot() {
+  DEV_SKIP = true;
+  typingQueue.length = 0;
+  isTyping = false;
+  queueDrainCallbacks.length = 0;
+  // Hide all other screens
+  ['char-create','splash','scanner-boot'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('vault-boot').style.display = 'none';
+  // Minimal game state for vault-boot
+  G.phase = 1; G.power = 0; G.food = 0; G.water = 0; G.metals = 0; G.wood = 0;
+  G.population = 1; G.turn = 1; G.scanRange = 1;
+  G.enemyUnits = []; G.nextEnemyId = 1;
+  G.systems = { power:false, water:false, comms:false, scanner:false, fabricator:false };
+  G.mapUnlocked = false;
+  const player = G.people.find(p=>p.isPlayer) || (() => {
+    const p = generatePerson('scout');
+    p.isPlayer = true; p.id = 'player_0';
+    G.people.push(p);
+    return p;
+  })();
+  G.people = [player];
+  G.people.forEach(p => { p.arrived = 0; p.status = 'vault'; p.actionsLeft = 1; p.movesLeft = 1; });
+  G.population = G.people.length;
+  document.getElementById('log').innerHTML = '';
+  // Kick off vault-boot
+  initAudio();
+  showVaultBoot();
+}
+
 function resumeFromSave() {
   if (G.phase >= 2) {
     if (Object.keys(G.world).length === 0) generateWorld();
@@ -6313,6 +6513,7 @@ let vbState = {
 
 // ── Entry point ────────────────────────────────────────────────
 function showVaultBoot() {
+  sndVaultAccess();
   // Reset all state
   vbO2 = VB_O2_MAX;
   vbBreakersOn = 0;
@@ -6400,6 +6601,7 @@ function showVaultBoot() {
 
 // ── Called when player presses BEGIN SEQUENCE ───────────────────
 function vbStartSequence() {
+  sndBeginSeq();
   const intro = document.getElementById('vb-intro');
   if (intro) intro.classList.add('vbi-gone');
   vbSetNext('vbm-power');
@@ -6526,6 +6728,7 @@ function vbBuildBreakers() {
 
 function vbToggleBreaker(i, el) {
   if (vbState.powerDone) return;
+  sndBreaker(!el.classList.contains('brk-on'));
   if (el.classList.contains('brk-on')) {
     // Toggle OFF — no O2 cost
     el.classList.remove('brk-on');
@@ -6553,6 +6756,7 @@ function vbToggleBreaker(i, el) {
 function vbEngagePower() {
   if (vbState.powerDone || vbBreakersOn < VB_BREAKER_COUNT) return;
   if (!vbConsume(1)) return;
+  sndPowerEngage();
   vbState.powerDone = true;
 
   const btn = document.getElementById('vb-engage-btn');
@@ -6578,6 +6782,7 @@ function vbEngagePower() {
 // ── WATER ──────────────────────────────────────────────────────
 function vbDoWater(type) {
   if (vbState.waterDone) return;
+  sndWaterChoice();
   const player = G.people.find(p => p.isPlayer);
   const isDoc  = player?.role === 'doctor';
   const cost   = type === 'quick' ? (isDoc ? 1 : 2) : (isDoc ? 4 : 5);
@@ -6640,6 +6845,7 @@ function vbBuildRooms() {
 
 function vbSearchRoom(room, el) {
   if (el.classList.contains('vb-opened')) return;
+  sndScavRoom();
   const player   = G.people.find(p => p.isPlayer);
   const isScout  = player?.role === 'scout';
   const isFarmer = player?.role === 'farmer';
@@ -6735,6 +6941,7 @@ function vbDoComms() {
   if (vbState.commsDone) return;
   if (!vbState.powerDone || !vbState.waterDone || vbState.metal < VB_METAL_NEEDED) return;
   if (!vbConsume(2)) return;
+  sndCommsBtn();
 
   vbState.commsDone = true;  // set immediately so game-over check is safe
 
@@ -6797,6 +7004,9 @@ function enterSurfaceMap() {
   drawMap();
   updateHUD();
 
+  startMapBootReveal();   // wipe the canvas back in as a boot sequence
+
+  // Log messages staggered — they start while the reveal is still running
   log('── VAULT ZERO — ALL SYSTEMS ONLINE ──', 'alert');
   log('surface scanner active. mapping sector zero.', 'sys', 400);
   if (vbState.survivor) {
@@ -6817,6 +7027,55 @@ function enterSurfaceMap() {
   setTimeout(showMapTutorial, 2700);
 }
 
+// ── Map boot reveal — scan-line wipe top → bottom ───────────────
+function startMapBootReveal() {
+  if (!ctx2 || !W2 || !H2) return;
+
+  // Grab the fully-rendered frame then black the canvas out
+  const snap  = ctx2.getImageData(0, 0, W2, H2);
+  ctx2.fillStyle = '#000';
+  ctx2.fillRect(0, 0, W2, H2);
+  mapBooting = true;
+
+  const DURATION_MS = 2200;          // total wipe duration
+  const SCANLINE_H  = 3;             // height of the glowing scan-line strip
+  const start       = performance.now();
+
+  sndMapBootScan();                  // rising-pitch scan sound
+
+  function step(now) {
+    if (!mapBooting) return;         // cancelled externally
+
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / DURATION_MS, 1);
+    const revealY  = Math.floor(progress * H2);   // rows revealed so far
+
+    // Restore revealed rows from snapshot
+    if (revealY > 0) {
+      ctx2.putImageData(snap, 0, 0, 0, 0, W2, revealY);
+    }
+
+    // Draw glowing green scan-line at the boundary
+    if (progress < 1) {
+      const lineY = revealY;
+      const grad  = ctx2.createLinearGradient(0, lineY - SCANLINE_H * 3, 0, lineY + SCANLINE_H);
+      grad.addColorStop(0,   'rgba(0,255,65,0)');
+      grad.addColorStop(0.5, 'rgba(0,255,65,0.55)');
+      grad.addColorStop(1,   'rgba(0,255,65,0.9)');
+      ctx2.fillStyle = grad;
+      ctx2.fillRect(0, lineY - SCANLINE_H * 3, W2, SCANLINE_H * 4);
+
+      requestAnimationFrame(step);
+    } else {
+      // Reveal complete — restore final frame cleanly
+      ctx2.putImageData(snap, 0, 0);
+      mapBooting = false;
+    }
+  }
+
+  requestAnimationFrame(step);
+}
+
 // ── GAME OVER ──────────────────────────────────────────────────
 function vbGameOver() {
   document.getElementById('vb-gameover').classList.add('vb-go-show');
@@ -6834,6 +7093,7 @@ function vbRestart() {
    SCANNER BOOT SCREEN  —  lever + live gauges + matrix rain
    ═══════════════════════════════════════════════════════════════ */
 
+let mapBooting      = false;        // true while map canvas reveal is running
 let sbootActive     = false;
 let sbootLvProg     = 0;          // 0 … 1
 let sbootLvOffset   = 0;          // px from bottom of track
@@ -7101,6 +7361,9 @@ function sbootLvApply(p) {
     else if (p < 0.88)  msg.textContent = 'ALMOST THERE — KEEP PULLING';
     else                msg.textContent = '⚡  ENGAGING  ⚡';
   }
+
+  // Update lever drone pitch
+  sndLeverUpdate(p);
 }
 
 /* ── Lever spring-back ───────────────────────────────────────── */
@@ -7120,6 +7383,7 @@ function sbootLvSpring() {
 
 /* ── Lever snap-to-top then engage ──────────────────────────── */
 function sbootLvEngage() {
+  sndLeverStop(true);   // stop drone + trigger power surge sound
   const start = sbootLvOffset;
   const t0    = Date.now();
   const DUR   = 160;
@@ -7128,7 +7392,7 @@ function sbootLvEngage() {
     sbootLvOffset = start + (sbootLvTravel - start) * t;
     sbootLvApply(sbootLvOffset / sbootLvTravel);
     if (t < 1) { requestAnimationFrame(step); return; }
-    setTimeout(sbootDone, 180);
+    setTimeout(sbootDone, 220);
   }
   requestAnimationFrame(step);
 }
@@ -7140,6 +7404,7 @@ function sbootPointerDown(clientY) {
   sbootLvStartY   = clientY;
   sbootLvStartOff = sbootLvOffset;
   document.getElementById('sboot-lever-handle')?.classList.add('sboot-dragging');
+  sndLeverStart();
 }
 function sbootPointerMove(clientY) {
   if (!sbootLvDragging || !sbootActive) return;
@@ -7156,7 +7421,7 @@ function sbootPointerUp() {
   if (!sbootLvDragging) return;
   sbootLvDragging = false;
   document.getElementById('sboot-lever-handle')?.classList.remove('sboot-dragging');
-  if (sbootLvProg < 0.95) sbootLvSpring();
+  if (sbootLvProg < 0.95) { sndLeverStop(false); sbootLvSpring(); }
 }
 
 function sbootListenOnce() {
