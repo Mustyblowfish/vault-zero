@@ -1224,7 +1224,7 @@ body::before {
 /* ── CYOA Encounter overlay ── */
 #encounter-overlay {
   display: none;
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0,0,0,0.97);
   z-index: 200;
@@ -4787,6 +4787,7 @@ const ENCOUNTER_POOLS = {
         actions:[
           { id:'take_can', label:'TAKE THE JERRY CAN', once:true, beats:['Empty. But useful.'], outcome:{metals:2, item:'fuel_can'} },
           { id:'back', label:'BACK', to:'start' },
+          { id:'leave_boot', label:'LEAVE', exit:true, beats:['Steel and rust. Nothing more.'], outcome:{nothing:true} },
         ]},
     }},
 
@@ -4983,6 +4984,7 @@ const ENCOUNTER_POOLS = {
           { id:'investigate', label:'INVESTIGATE THE TRACKS', once:true, to:'tracks_node' },
           { id:'snare', label:'SET A SNARE', once:true, to:'snare_wait',
             beats:['You find a good spot and set it.'] },
+          { id:'leave_grove', label:'MOVE ON', exit:true, beats:['You leave the clearing.'], outcome:{nothing:true} },
         ]},
       tracks_node:{ text:['Large dog. Lean, but healthy. Watching from the treeline.'],
         actions:[
@@ -5007,6 +5009,7 @@ const ENCOUNTER_POOLS = {
             check:{stat:'recon',vs:2},
             beats:{pass:['A rabbit. Clean kill. You take the harvest too.'], fail:['Empty. Something triggered it without getting caught.']},
             outcome:{pass:{food:7}, fail:{food:4}} },
+          { id:'back', label:'BACK', to:'start' },
         ]},
       harvested:{ text:['The grove stripped of what\'s reachable. It\'ll grow back.'],
         actions:[
@@ -5087,6 +5090,7 @@ const ENCOUNTER_POOLS = {
             beats:['They see you. Hands up on both sides.'] },
           { id:'stay_hidden', label:'STAY HIDDEN', once:true, to:'stay_hidden_node',
             beats:['You watch for another hour. They don\'t know you\'re here.'] },
+          { id:'back', label:'BACK', to:'start' },
         ]},
       approach_node:{ text:['They hear you coming. Tense. But not armed.','Three of them. Months on the road. One knows medicine.'],
         actions:[
@@ -5106,6 +5110,7 @@ const ENCOUNTER_POOLS = {
           { id:'take_left', label:'TAKE WHAT THEY LEFT', once:true,
             beats:['Food. Water. A compass.'], outcome:{food:5, water:3, item:'compass'} },
           { id:'follow', label:'FOLLOW THEM', to:'meet_node' },
+          { id:'leave_hidden', label:'HEAD BACK', exit:true, beats:['You let them go.'], outcome:{nothing:true} },
         ]},
     }},
 
@@ -5256,6 +5261,7 @@ const ENCOUNTER_POOLS = {
             fail_to:'start' },
           { id:'pry_fast', label:'PRY IT OPEN', requires:'pry', to:'door_open',
             beats:['Leveraged open in seconds.'] },
+          { id:'back_door', label:'BACK', to:'start' },
         ]},
       door_open:{ text:['Three people. They sealed themselves in after an injury.','Thin. Pale. But alive.','The bunker behind them — stocked.'],
         actions:[
@@ -6439,6 +6445,11 @@ function closeEncounter() {
   overlay.classList.remove('active');
   if (selectedH) setTimeout(() => openHexInfo(selectedH), 300);
 }
+
+// ESC closes active encounter (emergency escape hatch)
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && encState) closeEncounter();
+});
 
 function openHexInfo(h) {
   hideMapTutorial();
