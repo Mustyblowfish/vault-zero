@@ -1132,6 +1132,95 @@ body::before {
 .cp-dodge { color: var(--amber); }
 .cp-kill  { color: var(--green); }
 
+/* ── Resource warning overlay ──────────────────────────────────── */
+#resource-warning {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: transparent;
+}
+#resource-warning-inner {
+  background: rgba(18,2,2,0.96);
+  border: 1px solid var(--red);
+  padding: 14px 22px;
+  text-align: center;
+  pointer-events: all;
+  max-width: 260px;
+  cursor: pointer;
+  animation: res-warn-pulse 1.6s ease-in-out infinite;
+}
+@keyframes res-warn-pulse {
+  0%,100% { border-color: var(--red); box-shadow: 0 0 8px rgba(180,30,30,0.25); }
+  50%      { border-color: #ff4444;   box-shadow: 0 0 22px rgba(180,30,30,0.55); }
+}
+#resource-warning-title {
+  color: var(--red);
+  font-family: 'VT323', monospace;
+  font-size: 21px;
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+  text-shadow: 0 0 8px var(--red);
+}
+#resource-warning-body {
+  color: #ffb000;
+  font-size: 11px;
+  letter-spacing: 1px;
+  line-height: 2;
+  margin-bottom: 10px;
+}
+#resource-warning-body .rw-action {
+  color: var(--green-dim);
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+#resource-warning-dismiss {
+  color: #333;
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+
+/* ── Tutorial hint bar ─────────────────────────────────────────── */
+#tutorial-hint {
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(2,10,2,0.95);
+  border: 1px solid var(--green-dim);
+  color: var(--green-dim);
+  font-size: 11px;
+  letter-spacing: 1px;
+  line-height: 1.9;
+  padding: 10px 18px;
+  text-align: center;
+  z-index: 30;
+  display: none;
+  cursor: pointer;
+  max-width: 270px;
+  pointer-events: all;
+}
+#tutorial-hint .th-label {
+  color: var(--green);
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+#tutorial-hint .th-dismiss {
+  color: #1a3a1a;
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin-top: 6px;
+}
+@media (max-width: 700px) {
+  #tutorial-hint { bottom: 120px; }
+}
+
+
 /* ── CYOA Encounter overlay ── */
 #encounter-overlay {
   display: none;
@@ -2654,6 +2743,18 @@ body::before {
           <div class="cp-title">⚔ COMBAT</div>
           <div class="cp-body" id="cp-body"></div>
         </div>
+
+        <!-- Critical resource warning (centered, dismissible) -->
+        <div id="resource-warning">
+          <div id="resource-warning-inner">
+            <div id="resource-warning-title">⚠ SUPPLY CRITICAL</div>
+            <div id="resource-warning-body"></div>
+            <div id="resource-warning-dismiss">[ click to dismiss ]</div>
+          </div>
+        </div>
+
+        <!-- Contextual tutorial hints (bottom-centre, one at a time) -->
+        <div id="tutorial-hint"></div>
 
       </div>
     </div>
@@ -4415,9 +4516,10 @@ function nextTurn() {
   if (starving.length > 0) log(`STARVING: ${starving.map(p=>p.name.split(' ')[0]).join(', ')}`, 'error', 380);
   log(`metals: ${G.metals}  |  wood: ${G.wood}`, 'sys', 430);
   if (G.phase >= 3) log(`population: ${G.population}`, 'sys', 450);
-  if (G.power <= 5)  { logGap(); log('WARNING: power critically low. build solar panels.', 'error', 550); }
-  if (G.food  <= 2 && G.food > 0)  { logGap(); log('WARNING: food supply critical. send people to forage.', 'error', 650); }
-  if (G.water <= 2)  { logGap(); log('WARNING: water critical.', 'error', 700); }
+  const _pop = Math.max(1, G.population);
+  if (G.power <= 5)         { logGap(); log('WARNING: power critically low. build solar panels.', 'error', 550); }
+  if (G.food  > 0 && G.food  <= _pop * 2) { logGap(); log(`WARNING: food supply critical — ${Math.floor(G.food/_pop)} day${Math.floor(G.food/_pop)===1?'':'s'} remaining.`, 'error', 650); }
+  if (G.water > 0 && G.water <= _pop * 2) { logGap(); log(`WARNING: water critical — ${Math.floor(G.water/_pop)} day${Math.floor(G.water/_pop)===1?'':'s'} remaining.`, 'error', 700); }
   logGap();
 
   // ── Doctor heals most-wounded person at vault ──
@@ -4463,6 +4565,9 @@ function nextTurn() {
   // Refresh map so character action-ready highlights appear immediately on new turn.
   // Delayed past enemy movement so the canvas shows the final state.
   setTimeout(drawMap, 500);
+
+  // ── Warnings and tutorial hints ──
+  setTimeout(() => { updateResourceWarning(); checkTutorialHints(); }, 600);
 }
 
 const EVENTS = [
@@ -5786,6 +5891,7 @@ function autoReturnExhausted(person) {
   );
 
   log(`◈ ${firstName} is exhausted — returning to base.`, 'sys');
+  triggerFatigueHint(firstName);
 
   // Set up movement (bypasses normal action checks)
   let scout = G.scoutUnits.find(s => s.personId === person.id);
@@ -5931,6 +6037,7 @@ function maybeSpawnEnemy() {
     moving: false, animX: null, animY: null,
   });
   log(`⚠ ${def.label.toUpperCase()} DETECTED — ${(HEX_TERRAIN[hex.terrain]||{label:'unknown'}).label}.`, 'error', 300);
+  triggerEnemyHint();
   drawMap();
 }
 
@@ -7128,6 +7235,112 @@ function manualSave() {
   updateSaveStatus();
 }
 
+// ── Resource warning overlay ──────────────────────────────────────────────
+function updateResourceWarning() {
+  if (G.phase < 3) return;
+  const pop  = Math.max(1, G.population);
+  const warn = pop * 3; // ~3 turns remaining
+  const lines = [];
+
+  if (G.food <= 0) {
+    lines.push({ main: 'FOOD DEPLETED', action: 'survivors are starving — send scouts to forage immediately' });
+  } else if (G.food <= warn) {
+    const days = Math.max(1, Math.floor(G.food / pop));
+    lines.push({ main: `FOOD — ${days} day${days === 1 ? '' : 's'} remaining`, action: 'forage on forest or grassland hexes · build a FARM' });
+  }
+
+  if (G.water <= warn) {
+    const days = Math.max(1, Math.floor(G.water / pop));
+    lines.push({ main: `WATER — ${days} day${days === 1 ? '' : 's'} remaining`, action: 'collect water from river hexes · build a COLLECTOR' });
+  }
+
+  const el    = document.getElementById('resource-warning');
+  const body  = document.getElementById('resource-warning-body');
+  if (lines.length) {
+    body.innerHTML = lines.map(l =>
+      `<div>${l.main}</div><div class="rw-action">${l.action}</div>`
+    ).join('<div style="margin:4px 0;border-top:1px solid #200000;"></div>');
+    el.style.display = 'flex';
+  } else {
+    el.style.display = 'none';
+  }
+}
+document.getElementById('resource-warning').addEventListener('click', () => {
+  document.getElementById('resource-warning').style.display = 'none';
+});
+
+// ── Tutorial hints (shown once per type, tracked in localStorage) ─────────
+const _shownHints = new Set(JSON.parse(localStorage.getItem('vz-hints') || '[]'));
+
+function showTutorialHint(id, title, lines) {
+  if (_shownHints.has(id)) return;
+  _shownHints.add(id);
+  localStorage.setItem('vz-hints', JSON.stringify([..._shownHints]));
+  const el = document.getElementById('tutorial-hint');
+  el.innerHTML =
+    `<div class="th-label">${title}</div>` +
+    lines.map(l => `<div>${l}</div>`).join('') +
+    `<div class="th-dismiss">[ click to dismiss ]</div>`;
+  el.style.display = 'block';
+  el.onclick = () => { el.style.display = 'none'; };
+}
+
+function checkTutorialHints() {
+  if (G.phase < 3) return;
+  const hasBuildings = Object.values(G.world).some(h => h.building);
+
+  // After a few turns with no structures
+  if (G.turn >= 3 && !hasBuildings) {
+    showTutorialHint('build',
+      '◈ TIP — STRUCTURES',
+      [
+        'Your people are gathering by hand.',
+        'Build a FARM or WATER COLLECTOR',
+        'to generate resources automatically',
+        'every day. Open the BUILD menu.',
+      ]
+    );
+    return;
+  }
+
+  // First turn on the map
+  if (G.turn <= 1) {
+    showTutorialHint('explore',
+      '◈ TIP — EXPLORATION',
+      [
+        'Click any amber hex to send a scout.',
+        'Each person has one action per day.',
+        'Explore to find food, water,',
+        'and supplies for the vault.',
+      ]
+    );
+  }
+}
+
+function triggerFatigueHint(firstName) {
+  showTutorialHint('fatigue',
+    '◈ TIP — FATIGUE',
+    [
+      `${firstName} was recalled — exhausted.`,
+      'Scouts rest at the vault (−2 fatigue/day).',
+      'Build an OUTPOST so they can rest',
+      'in the field without returning.',
+    ]
+  );
+}
+
+function triggerEnemyHint() {
+  showTutorialHint('enemy',
+    '◈ TIP — RAIDERS',
+    [
+      'Armed hostiles are moving on the map.',
+      'They will attack your scouts on contact.',
+      'Send a high-COMBAT person to intercept,',
+      'or keep scouts ahead of them.',
+    ]
+  );
+}
+
 function toggleMenu() {
   const overlay = document.getElementById('menu-overlay');
   const isOpen = overlay.style.display !== 'none';
@@ -7300,6 +7513,8 @@ function restoreButtons() {
       { id:'roster',  label:'[ ROSTER ]',  style:'',        action: ()=>showPeoplePanel(false) },
       { id:'endturn', label:'[ END DAY ]', style:'primary', action: nextTurn },
     ]);
+    updateResourceWarning();
+    checkTutorialHints();
   } else if (G.phase === 2) {
     setActions([
       { id:'endturn', label:'[ END DAY ]',      style:'primary', action: nextTurn },
