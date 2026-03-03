@@ -6413,11 +6413,10 @@ function encResolveAction(action) {
   const fn = encState.person ? encState.person.name.split(' ')[0] : null;
   const beatLines = (beats || []).map(l => subPron(l, encState.person, fn));
 
-  const afterBeats = () => {
-    if (outcome) encApplyOutcome(outcome, textEl);
+  // continueAfter: runs after outcome is fully resolved (immediately, or after item conflict picker)
+  const continueAfter = () => {
     const hasReward = outcome && !outcome.nothing;
     const delay = hasReward ? 2200 : 900;
-
     if (action.exit) {
       setTimeout(closeEncounter, delay);
       return;
@@ -6430,13 +6429,20 @@ function encResolveAction(action) {
     }, delay);
   };
 
+  const afterBeats = () => {
+    const conflictPending = outcome ? encApplyOutcome(outcome, textEl, continueAfter) : false;
+    if (!conflictPending) continueAfter();
+  };
+
   beatLines.length
     ? revealEncounterLines(beatLines, textEl, afterBeats)
     : afterBeats();
 }
 
-function encApplyOutcome(outcome, textEl) {
-  if (!outcome || outcome.nothing) return;
+// onConflictResolved: callback used when a slot-conflict picker is shown (defers continueAfter)
+// Returns true if a conflict picker was shown (caller must NOT call continueAfter immediately)
+function encApplyOutcome(outcome, textEl, onConflictResolved) {
+  if (!outcome || outcome.nothing) return false;
   const parts = [];
   const p = encState.person;
 
@@ -6445,15 +6451,23 @@ function encApplyOutcome(outcome, textEl) {
   if (outcome.metals) { G.metals += outcome.metals; parts.push(`+${outcome.metals} METALS`); }
   if (outcome.wood)   { G.wood   += outcome.wood;   parts.push(`+${outcome.wood} WOOD`); }
 
-  // Item(s) — support outcome.item and outcome.item2 for dual drops
-  [outcome.item, outcome.item2].forEach(itemId => {
+  // Item(s): primary item checks for slot conflict; secondary (item2) always auto-applies
+  let conflictPending = false;
+  [outcome.item, outcome.item2].forEach((itemId, idx) => {
     if (!itemId) return;
     const def = ITEMS[itemId];
     if (!def) return;
-    const displaced = giveItem(p, itemId);
-    let msg = `+ ${def.label}`;
-    if (displaced && ITEMS[displaced]) msg += ` · ${ITEMS[displaced].label} → STASH`;
-    parts.push(msg);
+    const slot = def.type;
+    const existing = p && p.gear ? p.gear[slot] : null;
+    if (idx === 0 && existing && p) {
+      // Primary item, slot occupied — defer to picker (rendered after parts are flushed)
+      conflictPending = true;
+    } else {
+      const displaced = giveItem(p, itemId);
+      let msg = `+ ${def.label}`;
+      if (displaced && ITEMS[displaced]) msg += ` · ${ITEMS[displaced].label} → STASH`;
+      parts.push(msg);
+    }
   });
 
   if (outcome.wound && p) {
@@ -6498,6 +6512,66 @@ function encApplyOutcome(outcome, textEl) {
     outEl.textContent = parts.join('   ');
     textEl.appendChild(outEl);
   }
+
+  // Show inline item-conflict picker after other outcome text (defers encounter continuation)
+  if (conflictPending && outcome.item && p) {
+    const def = ITEMS[outcome.item];
+    showItemConflictPicker(p, outcome.item, p.gear[def.type], textEl, onConflictResolved);
+  }
+
+  return conflictPending;
+}
+
+function showItemConflictPicker(person, newItemId, existingItemId, textEl, onResolved) {
+  const newDef = ITEMS[newItemId];
+  const oldDef = ITEMS[existingItemId];
+  const slotLabel = newDef.type.toUpperCase();
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-top:14px;padding-top:10px;border-top:1px solid #002800;display:flex;flex-direction:column;gap:5px;';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'font-size:9px;color:var(--green-dim);letter-spacing:3px;margin-bottom:2px;';
+  header.textContent = `${slotLabel} SLOT OCCUPIED`;
+  wrap.appendChild(header);
+
+  const currentEl = document.createElement('div');
+  currentEl.style.cssText = 'font-size:10px;color:#005500;letter-spacing:1px;margin-bottom:4px;';
+  currentEl.textContent = `EQUIPPED: ${oldDef.label}${oldDef.desc ? '  ·  ' + oldDef.desc : ''}`;
+  wrap.appendChild(currentEl);
+
+  // Equip new item — old goes to stash
+  const equipBtn = document.createElement('button');
+  equipBtn.className = 'enc-btn';
+  equipBtn.textContent = `[ EQUIP ${newDef.label} ]   ${oldDef.label} → stash`;
+  equipBtn.addEventListener('click', () => {
+    wrap.remove();
+    giveItem(person, newItemId);
+    const out = document.createElement('div');
+    out.className = 'enc-outcome';
+    out.textContent = `+ ${newDef.label}   ${oldDef.label} → STASH`;
+    textEl.appendChild(out);
+    updateHUD();
+    if (onResolved) onResolved();
+  });
+  wrap.appendChild(equipBtn);
+
+  // Keep old — new goes to stash
+  const stashBtn = document.createElement('button');
+  stashBtn.className = 'enc-btn';
+  stashBtn.textContent = `[ STASH ${newDef.label} ]   keep ${oldDef.label}`;
+  stashBtn.addEventListener('click', () => {
+    wrap.remove();
+    G.stash.push(newItemId);
+    const out = document.createElement('div');
+    out.className = 'enc-outcome';
+    out.textContent = `+ ${newDef.label} → STASH`;
+    textEl.appendChild(out);
+    if (onResolved) onResolved();
+  });
+  wrap.appendChild(stashBtn);
+
+  textEl.appendChild(wrap);
 }
 
 function revealEncounterLines(lines, el, onDone) {
