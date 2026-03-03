@@ -1233,6 +1233,49 @@ body::before {
   #tutorial-hint { bottom: 120px; }
 }
 
+/* ── Tutorial banner (top-centre, steps 1-3) ── */
+#tutorial-banner {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,8,0,0.93);
+  border: 1px solid var(--green-dim);
+  color: var(--green);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  padding: 7px 14px;
+  z-index: 25;
+  align-items: center;
+  gap: 14px;
+  pointer-events: all;
+  white-space: nowrap;
+}
+#tutorial-skip-btn {
+  background: none;
+  border: none;
+  color: #1a3a1a;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  padding: 0;
+}
+#tutorial-skip-btn:hover { color: var(--green-dim); }
+/* Tutorial-locked END DAY */
+.endday-tutorial-locked {
+  opacity: 0.3 !important;
+  cursor: not-allowed !important;
+}
+/* Resource bar pulse nudge */
+@keyframes res-bar-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+.res-chart-pulse .res-chart-bar {
+  animation: res-bar-pulse 0.75s ease-in-out 5;
+}
 
 /* ── CYOA Encounter overlay ── */
 #encounter-overlay {
@@ -2730,8 +2773,14 @@ body::before {
         <!-- Move mode hint -->
         <div id="move-cursor-hint">→ SELECT DESTINATION — ESC TO CANCEL</div>
 
-        <!-- First-turn tutorial hint -->
-        <div id="map-tutorial-hint">◈ CLICK AN AMBER HEX TO SEND YOUR SCOUT</div>
+        <!-- Tutorial banner (top-centre, guided steps 1-3) -->
+        <div id="tutorial-banner">
+          <span id="tutorial-banner-text"></span>
+          <button id="tutorial-skip-btn" onclick="skipTutorial()">[ SKIP ]</button>
+        </div>
+
+        <!-- First-turn tutorial hint (non-tutorial returning players) -->
+        <div id="map-tutorial-hint">◈ CLICK AN AMBER HEX TO MOVE YOUR PLAYER</div>
 
         <!-- Double-click quick-move picker -->
         <div id="quick-picker">
@@ -3916,7 +3965,20 @@ function updateHUD() {
 // ── End Day glow — pulses when every character has spent both their move and action ──
 function updateEndDayGlow() {
   const btn = buttons['endturn'];
-  if (!btn || btn.disabled) return;
+  if (!btn) return;
+
+  // Tutorial lock: dim END DAY visually on turn 1 until player has moved
+  if (G.tutorialPhase === 0) {
+    const player = G.people.find(p => p.isPlayer);
+    if (player && (player.movesLeft ?? 1) > 0) {
+      btn.classList.add('endday-tutorial-locked');
+      syncMapEndDayBtn();
+      return;
+    }
+  }
+  btn.classList.remove('endday-tutorial-locked');
+
+  if (btn.disabled) return;
   // Only relevant once the map is active and people exist
   if (G.phase < 3 || G.people.length === 0) { btn.classList.remove('endday-ready'); return; }
   const allDone = G.people.every(p => (p.movesLeft ?? 1) <= 0 && p.actionsLeft <= 0);
@@ -4259,6 +4321,7 @@ function bootScanner() {
 }
 
 function showMapTutorial() {
+  if (G.tutorialPhase >= 0) return; // tutorial banner handles guidance on first run
   if (G.turn <= 1) {
     const el = document.getElementById('map-tutorial-hint');
     if (el) el.style.display = 'block';
@@ -4276,7 +4339,8 @@ function unlockMap() {
   revealAround(0, 0, G.scanRange);
   // Switch to map tab so panel is visible and canvas-wrap has real dimensions
   switchTab('map');
-  setTimeout(showMapTutorial, 600);
+  initTutorial();
+  setTimeout(() => { showMapTutorial(); updateTutorialBanner(); }, 600);
   // Double rAF: first lets display:flex apply, second lets layout paint
   requestAnimationFrame(() => requestAnimationFrame(() => { resizeMap(); drawMap(); }));
 }
@@ -4436,10 +4500,23 @@ function recruit() {
 //  TURN SYSTEM
 // ══════════════════════════════════════════════
 function nextTurn() {
+  // Tutorial lock: END DAY blocked on turn 1 until player has moved
+  if (G.tutorialPhase === 0) {
+    const player = G.people.find(p => p.isPlayer);
+    if (player && (player.movesLeft ?? 1) > 0) return; // silently blocked; banner explains why
+  }
+
   G.turn++;
   G.daysPassed += 7;
   // Reset everyone's move + action tokens for the new turn
   G.people.forEach(p => { p.actionsLeft = 1; p.movesLeft = 1; });
+
+  // Tutorial phase transitions (turn-based)
+  if (G.tutorialPhase > 0) {
+    if      (G.turn === 2 && G.tutorialPhase <= 1) advanceTutorial(2);
+    else if (G.turn === 3 && G.tutorialPhase <= 2) advanceTutorial(3);
+    else if (G.turn >= 4  && G.tutorialPhase >= 1) completeTutorial();
+  }
   updateHUD();
 
   // ── Resource tick ──
@@ -4517,8 +4594,17 @@ function nextTurn() {
   // Random event
   if (Math.random() < 0.25 && G.phase >= 2) randomEvent();
 
-  // Survivor trigger — min 5 turns alone, low probability per turn
-  if (G.phase === 2 && G.discoveries >= 2 && G.turn >= 5 && Math.random() < 0.10) triggerContact();
+  // Survivor / first companion trigger
+  if (G.phase === 2) {
+    if (G.tutorialStarted && G.turn === 7) {
+      // Tutorial: reliable companion arrival at turn 7
+      G.tutorialStarted = false;
+      setTimeout(triggerContact, 800);
+    } else if (!G.tutorialStarted && G.discoveries >= 2 && G.turn >= 5 && Math.random() < 0.10) {
+      // Non-tutorial (returning players): random arrival from turn 5+
+      triggerContact();
+    }
+  }
 
   // Expansion trigger
   if (G.phase === 3 && G.population >= 5 && G.discoveries >= 4) triggerExpansion();
@@ -5708,6 +5794,8 @@ function dispatchScoutTo(hex, person) {
   person.status = 'mission';
   person.missionHex = `${hex.q},${hex.r}`;
   person.movesLeft = 0;  // moving costs a move, not an action
+  // Tutorial: first move advances banner from "MOVE YOUR PLAYER" to "TAKE AN ACTION"
+  if (G.tutorialPhase === 0) advanceTutorial(1);
   updateHUD();           // recheck end-day glow after move token spent
 
   G.scoutCooldown = true;
@@ -5763,8 +5851,8 @@ function dispatchScoutTo(hex, person) {
     // Cooldown before next dispatch
     setTimeout(()=>{ G.scoutCooldown = false; }, 1200);
 
-    // Phase triggers
-    if (G.phase===2 && G.discoveries>=2 && G.turn>=5) setTimeout(triggerContact, 2000);
+    // Phase triggers (contact only fires this way for non-tutorial players)
+    if (G.phase===2 && !G.tutorialStarted && G.discoveries>=2 && G.turn>=5) setTimeout(triggerContact, 2000);
     if (G.phase===3 && G.population>=5 && G.discoveries>=4) setTimeout(triggerExpansion, 2000);
   });
 }
@@ -6856,22 +6944,27 @@ function performHexAction(person, hex, actKey) {
     G.wood += amount;
     log(`${firstName} gathered ${amount} wood.${roleBonusTxt}`, 'story', 300);
   } else if (ad.yields === 'morale') {
-    // Scout and doctor have much higher survivor-find chance
-    const roleSearchBonus = { scout: 0.20, doctor: 0.12 }[person.role] || 0;
-    const chance = 0.1 + (person.stats.recon - 1) * 0.05 + roleSearchBonus;
-    if (Math.random() < chance) {
-      const npc = generatePerson();
-      G.people.push(npc);
-      G.population = G.people.length;
-      const def = ROLE_DEFS[npc.role];
-      log(`${firstName} found a survivor. still alive.`, 'story', 300);
-      logGap();
-      log(`${npc.name} — ${npc.role} ${def.icon}`, 'alert', 600);
-      log(npc.trait, 'story', 900);
-      log(`${pron(npc).charAt(0).toUpperCase()+pron(npc).slice(1)} joins the vault.`, 'story', 1200);
-      logGap();
+    // In phase 2 the first companion arrives via triggerContact — suppress action-based finds
+    if (G.phase < 3) {
+      log(`${firstName} searched. no one out there — yet.`, 'story', 300);
     } else {
-      log(`${firstName} found no one. but signs someone passed through recently.`, 'story', 300);
+      // Scout and doctor have much higher survivor-find chance
+      const roleSearchBonus = { scout: 0.20, doctor: 0.12 }[person.role] || 0;
+      const chance = 0.1 + (person.stats.recon - 1) * 0.05 + roleSearchBonus;
+      if (Math.random() < chance) {
+        const npc = generatePerson();
+        G.people.push(npc);
+        G.population = G.people.length;
+        const def = ROLE_DEFS[npc.role];
+        log(`${firstName} found a survivor. still alive.`, 'story', 300);
+        logGap();
+        log(`${npc.name} — ${npc.role} ${def.icon}`, 'alert', 600);
+        log(npc.trait, 'story', 900);
+        log(`${pron(npc).charAt(0).toUpperCase()+pron(npc).slice(1)} joins the vault.`, 'story', 1200);
+        logGap();
+      } else {
+        log(`${firstName} found no one. but signs someone passed through recently.`, 'story', 300);
+      }
     }
   }
   updateHUD();
@@ -7324,6 +7417,7 @@ function showTutorialHint(id, title, lines) {
 
 function checkTutorialHints() {
   if (G.phase < 3) return;
+  if (G.tutorialPhase >= 0) return; // tutorial banner handles first-run guidance
   const hasBuildings = Object.values(G.world).some(h => h.building);
 
   // After a few turns with no structures
@@ -7376,6 +7470,62 @@ function triggerEnemyHint() {
       'or keep scouts ahead of them.',
     ]
   );
+}
+
+// ── Guided Tutorial System (turns 1–3 of first playthrough) ─────────────────
+function initTutorial() {
+  // Skip if returning player has already completed tutorial
+  G.tutorialStarted = !localStorage.getItem('vz-tutorial-done');
+  G.tutorialPhase   = G.tutorialStarted ? 0 : -1;
+  updateTutorialBanner();
+}
+
+function updateTutorialBanner() {
+  const banner = document.getElementById('tutorial-banner');
+  if (!banner) return;
+  if (G.tutorialPhase < 0 || G.phase < 2) { banner.style.display = 'none'; return; }
+  const text = document.getElementById('tutorial-banner-text');
+  const msgs = {
+    0: '◈ MOVE YOUR PLAYER — click an amber hex to explore',
+    1: '◈ TAKE AN ACTION — open a hex and forage for food',
+    2: '◈ WATER IS LOW — find a river or lake, collect water',
+    3: '◈ BUILD SOMETHING — open the BUILD panel',
+  };
+  if (msgs[G.tutorialPhase] !== undefined) {
+    text.textContent = msgs[G.tutorialPhase];
+    banner.style.display = 'flex';
+    if (G.tutorialPhase === 1) setTimeout(() => pulseResourceBar('food'), 300);
+    if (G.tutorialPhase === 2) setTimeout(() => pulseResourceBar('water'), 300);
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function pulseResourceBar(res) {
+  const el = document.getElementById(`chart-${res}`);
+  if (!el) return;
+  el.classList.remove('res-chart-pulse');
+  void el.offsetWidth; // force reflow so animation restarts
+  el.classList.add('res-chart-pulse');
+  setTimeout(() => el.classList.remove('res-chart-pulse'), 4000);
+}
+
+function advanceTutorial(toPhase) {
+  if (G.tutorialPhase < 0) return;
+  G.tutorialPhase = (toPhase !== undefined) ? toPhase : G.tutorialPhase + 1;
+  if (G.tutorialPhase >= 4) completeTutorial();
+  else updateTutorialBanner();
+}
+
+function completeTutorial() {
+  G.tutorialPhase = -1;
+  localStorage.setItem('vz-tutorial-done', '1');
+  updateTutorialBanner();
+}
+
+function skipTutorial() {
+  G.tutorialStarted = false;
+  completeTutorial();
 }
 
 function toggleMenu() {
@@ -7504,6 +7654,8 @@ function saveGame() {
     people: G.people,
     stash: G.stash || [],
     resourceHistory: G.resourceHistory,
+    tutorialPhase: G.tutorialPhase ?? -1,
+    tutorialStarted: G.tutorialStarted ?? false,
   };
   try {
     window.storage.set(SAVE_KEY, JSON.stringify(saveData));
@@ -7540,6 +7692,8 @@ async function loadGame() {
     G.people = (s.people || []).map(p => ({ wounds:0, daysOut:0, gear: { weapon:null, armour:null, tool:null }, ...p }));
     G.stash  = s.stash || [];
     G.resourceHistory = s.resourceHistory || { power:[], food:[], water:[], population:[] };
+    G.tutorialPhase   = s.tutorialPhase   ?? -1;
+    G.tutorialStarted = s.tutorialStarted ?? false;
     return true;
   } catch(e) { return false; }
 }
@@ -7679,6 +7833,7 @@ function devSkipToMap() {
   G.phase = 3; G.power = 80; G.food = 8; G.water = 15; G.metals = 10; G.wood = 5;
   G.population = 1; G.turn = 1; G.scanRange = 1;
   G.enemyUnits = []; G.nextEnemyId = 1;
+  G.tutorialPhase = -1; G.tutorialStarted = false;
   G.systems = { power:true, water:true, comms:true, scanner:true, fabricator:false };
   const player = G.people.find(p=>p.isPlayer) || (() => {
     const p = generatePerson('scout'); p.isPlayer = true; p.id = 'player_0';
