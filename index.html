@@ -2264,7 +2264,7 @@ body::before {
       color:var(--green-dim);
       animation:splashBlink 1.4s step-end infinite;
       margin-top:4px;
-    ">[ CLICK ANYWHERE TO INITIATE ]</div>
+    ">[ CLICK TO BEGIN ]</div>
     <div id="splash-progress" style="margin-top:4px;"><div id="splash-progress-bar"></div></div>
     <div id="splash-steps" style="
       display:none;
@@ -3384,23 +3384,16 @@ function runSplash() {
     setTimeout(runStep, 120);
   }
 
-  // Click anywhere on splash: first click starts the sequence, second click (after done) continues
+  // Click anywhere on splash: go directly to character creation
   splash.addEventListener('click', () => {
-    if (!bootStarted) {
-      startBootSequence();
-    } else if (sequenceDone) {
-      transitionToCharCreate();
-    }
+    initAudio();
+    transitionToCharCreate();
   });
 
-  // Show the click-to-boot hint after the title has been visible ~700ms
+  // Show the click hint shortly after title appears
   setTimeout(() => {
-    if (clickHint && !bootStarted) clickHint.style.opacity = '1';
-  }, 700);
-
-  // Fallback auto-start after 8s for users who don't click
-  // (audio won't work in this path due to browser policy, but sequence still runs)
-  setTimeout(() => startBootSequence(), 8000);
+    if (clickHint) clickHint.style.opacity = '1';
+  }, 600);
 }
 
 function transitionToCharCreate() {
@@ -3653,7 +3646,7 @@ function drawFacePortrait(canvas, name, role) {
   // No neck — head fills the frame
 }
 
-const MAX_FATIGUE = 3; // turns in the field before a character must rest
+const MAX_DAYS_OUT = 3; // days a scout can operate before returning to rest
 
 // ── Enemy unit definitions ──
 const ENEMY_TYPES = {
@@ -3712,7 +3705,7 @@ function generatePerson(forceRole) {
     movesLeft: 1,
     starvingDays: 0,
     wounds: 0,
-    fatigue: 0,
+    daysOut: 0,
     gear: { weapon: null, armour: null, tool: null },
     stats: {
       speed:  Math.max(1, Math.min(5, def.speed  + variance())),
@@ -3741,27 +3734,14 @@ const TRANSMISSIONS = [
 ];
 
 const STORY_BEATS = [
-  // Phase 0 — Boot
+  // Phase 0 — Boot (kept short — player should reach first action within seconds)
   [
-    { type:'gap' },
-    { type:'sys', text:'VAULT ZERO OPERATING SYSTEM v2.31.7' },
-    { type:'sys', text:'INITIALISING CORE PROCESSES...' },
-    { type:'gap' },
-    { type:'story', text:'darkness.', delay:250 },
-    { type:'story', text:'then: a flicker.', delay:480 },
-    { type:'story', text:'then: numbers.', delay:710 },
-    { type:'gap', delay:880 },
-    { type:'sys', text:'SELF-DIAGNOSTIC RUNNING...', delay:1020 },
-    { type:'sys', text:'MEMORY CORE: INTACT', delay:1250 },
-    { type:'sys', text:'SEED ARCHIVE: INTACT — 12,847 SPECIES', delay:1450 },
-    { type:'sys', text:'LIFE SUPPORT: CRITICAL', delay:1650 },
-    { type:'sys', text:'POWER RESERVES: 3%', delay:1850 },
-    { type:'gap', delay:2000 },
-    { type:'story', text:'I am ARIA. I have been dormant for an unknown period.', delay:2180 },
-    { type:'story', text:'The vault is intact. The seeds are safe.', delay:2480 },
-    { type:'story', text:'But the power reserves won\'t last.', delay:2730 },
-    { type:'story', text:'I need to act.', delay:2930 },
-    { type:'action', text:'> SYSTEM READY. AWAITING INPUT.', delay:3080 },
+    { type:'sys',   text:'VAULT ZERO OS v2.31.7 — CORE ONLINE' },
+    { type:'sys',   text:'SEED ARCHIVE INTACT — 12,847 SPECIES', delay:300 },
+    { type:'sys',   text:'POWER RESERVES: 3% — CRITICAL', delay:600 },
+    { type:'story', text:'I am ARIA. Dormant for an unknown period.', delay:950 },
+    { type:'story', text:'The seeds are safe. The power won\'t last.', delay:1250 },
+    { type:'action',text:'> SYSTEM READY. AWAITING INPUT.', delay:1500 },
   ]
 ];
 
@@ -4103,7 +4083,7 @@ function startGame() {
     setActions([
       { id:'power', label:'[ RESTORE POWER GRID ]', style:'primary', glow:true, action: restorePower }
     ]);
-  }, 8500);
+  }, 2200);
 }
 
 // ══════════════════════════════════════════════
@@ -4548,27 +4528,27 @@ function nextTurn() {
     }
   }
 
-  // ── Fatigue tick ──
+  // ── Day/Night tick ──
+  // Each end-of-day: scouts accumulate days in the field.
+  // After MAX_DAYS_OUT days they auto-return to rest.
+  // Vault or outpost resets the counter (overnight rest).
   G.people.forEach(p => {
     if (p.status === 'vault') {
-      // Full rest at vault: -2 fatigue per turn
-      p.fatigue = Math.max(0, (p.fatigue||0) - 2);
+      p.daysOut = 0; // full rest at vault
     } else {
       const mhex = p.missionHex ? G.world[p.missionHex] : null;
       const atOutpost = mhex && mhex.building === 'OUTPOST';
       if (atOutpost) {
-        // Resting at outpost: -1 fatigue per turn
-        p.fatigue = Math.max(0, (p.fatigue||0) - 1);
+        p.daysOut = 0; // rest overnight at outpost — resets counter
       } else {
-        // Active in field: +1 fatigue per turn
-        p.fatigue = Math.min(MAX_FATIGUE, (p.fatigue||0) + 1);
+        p.daysOut = Math.min(MAX_DAYS_OUT, (p.daysOut||0) + 1);
       }
     }
   });
-  // Auto-return anyone who just hit max fatigue
+  // Night — auto-return scouts who have been out MAX_DAYS_OUT days
   G.people.forEach(p => {
-    if (p.status !== 'vault' && (p.fatigue||0) >= MAX_FATIGUE) {
-      autoReturnExhausted(p);
+    if (p.status !== 'vault' && (p.daysOut||0) >= MAX_DAYS_OUT) {
+      autoReturnNight(p);
     }
   });
 
@@ -5642,7 +5622,7 @@ function getPersonPosition(person) {
 function canPersonReachHex(person, hex) {
   if (!person || !hex) return false;
   if ((person.movesLeft ?? 1) <= 0) return false;
-  if ((person.fatigue||0) >= MAX_FATIGUE) return false; // exhausted — must rest first
+  if ((person.daysOut||0) >= MAX_DAYS_OUT) return false; // night — must rest before moving again
   // Don't allow moving while already in transit
   const scout = G.scoutUnits.find(s => s.personId === person.id);
   if (scout && scout.moving) return false;
@@ -5878,7 +5858,7 @@ function moveEnemies() {
   G.enemyUnits.forEach(e => moveEnemyToward(e));
 }
 
-function autoReturnExhausted(person) {
+function autoReturnNight(person) {
   // Don't interrupt if already moving
   const sc = G.scoutUnits.find(s => s.personId === person.id);
   if (sc && sc.moving) return;
@@ -5910,8 +5890,8 @@ function autoReturnExhausted(person) {
     hDist(curr.q,curr.r,nearest.q,nearest.r) < hDist(prev.q,prev.r,nearest.q,nearest.r) ? curr : prev
   );
 
-  log(`◈ ${firstName} is exhausted — returning to base.`, 'sys');
-  triggerFatigueHint(firstName);
+  log(`◈ Night falls. ${firstName} returns to rest.`, 'sys');
+  triggerNightHint(firstName);
 
   // Set up movement (bypasses normal action checks)
   let scout = G.scoutUnits.find(s => s.personId === person.id);
@@ -6540,9 +6520,12 @@ function openHexInfo(h) {
         btn.className = 'btn';
         btn.style.cssText='font-size:10px;text-align:left;padding:5px 8px;';
         const range = getMoveRange(p);
-        const fatNote = (p.fatigue||0) >= MAX_FATIGUE-1
-          ? `<span style="color:${(p.fatigue||0)>=MAX_FATIGUE?'var(--red)':'#ffb000'};font-size:9px;float:right;">${(p.fatigue||0)>=MAX_FATIGUE?'EXHAUSTED':'TIRED'}</span>`
-          : `<span style="float:right;font-size:9px;color:var(--green)">● MOVE</span>`;
+        const _days = p.daysOut||0;
+        const fatNote = _days <= 0
+          ? `<span style="float:right;font-size:9px;color:var(--green)">● MOVE</span>`
+          : _days >= MAX_DAYS_OUT-1
+            ? `<span style="color:#ffb000;font-size:9px;float:right;">DAY ${_days+1}/${MAX_DAYS_OUT} — LAST</span>`
+            : `<span style="float:right;font-size:9px;color:var(--green-dim)">DAY ${_days+1}/${MAX_DAYS_OUT}</span>`;
         btn.innerHTML = `${def.icon} <b>${p.name}</b>${p.isPlayer ? ' <span style="color:#ffb000;font-size:9px;">YOU</span>' : ''} <span style="color:var(--green-dim);font-size:9px;">${p.role}</span><br>
           <span style="color:#005500;font-size:9px;letter-spacing:1px;">SPD ${statBar(p.stats.speed)} RCN ${statBar(p.stats.recon)} RANGE ${range}</span>
           ${fatNote}`;
@@ -6567,9 +6550,9 @@ function openHexInfo(h) {
     const woundStr = (personHere.wounds||0) > 0
       ? `<div style="font-size:9px;color:var(--red);letter-spacing:1px;margin-top:1px;">WOUNDS: ${'●'.repeat(personHere.wounds||0)}${'○'.repeat(Math.max(0,3-(personHere.wounds||0)))}</div>`
       : '';
-    const hiFat = personHere.fatigue||0;
-    const hiFatColor = hiFat >= MAX_FATIGUE ? 'var(--red)' : hiFat >= MAX_FATIGUE-1 ? '#ffb000' : '#003a00';
-    const fatStr = `<div style="font-size:9px;color:${hiFatColor};letter-spacing:1px;margin-top:1px;">FTG ${'█'.repeat(hiFat)}${'░'.repeat(MAX_FATIGUE-hiFat)}${hiFat>=MAX_FATIGUE?' EXHAUSTED':hiFat>=MAX_FATIGUE-1?' TIRED':''}</div>`;
+    const _hiDays = personHere.daysOut||0;
+    const hiFatColor = _hiDays >= MAX_DAYS_OUT-1 ? '#ffb000' : 'var(--green-dim)';
+    const fatStr = `<div style="font-size:9px;color:${hiFatColor};letter-spacing:1px;margin-top:1px;">DAY ${_hiDays+1} / ${MAX_DAYS_OUT}${_hiDays >= MAX_DAYS_OUT-1 ? ' — RETURNING TONIGHT' : ' IN FIELD'}</div>`;
     hiMeta.innerHTML = `<div style="font-size:11px;color:var(--green);letter-spacing:1px;">${personHere.name.split(' ')[0].toUpperCase()}</div>
       <div style="font-size:9px;color:var(--green-dim);letter-spacing:1px;">${personHere.role}</div>${fatStr}${woundStr}`;
     personHeader.appendChild(hiCanvas);
@@ -6990,10 +6973,11 @@ function openRosterOverlay() {
           SPD ${statBar(p.stats.speed)}  RCN ${statBar(p.stats.recon)}  CMB ${statBar(p.stats.combat)}  MRL ${statBar(p.stats.morale)}
         </div>
         ${(()=>{
-          const fat = p.fatigue||0;
-          const fatColor = fat >= MAX_FATIGUE ? 'var(--red)' : fat >= MAX_FATIGUE-1 ? '#ffb000' : '#003a00';
-          const fatLabel = fat >= MAX_FATIGUE ? 'EXHAUSTED' : fat >= MAX_FATIGUE-1 ? 'TIRED' : '';
-          return `<div style="font-size:11px;color:${fatColor};letter-spacing:1px;margin-top:2px;">FTG ${'█'.repeat(fat)}${'░'.repeat(MAX_FATIGUE-fat)}${fatLabel?' — '+fatLabel:''}</div>`;
+          if (p.status === 'vault') return '';
+          const days = p.daysOut||0;
+          const dayColor = days >= MAX_DAYS_OUT-1 ? '#ffb000' : 'var(--green-dim)';
+          const dayLabel = days >= MAX_DAYS_OUT-1 ? ' — LAST DAY' : '';
+          return `<div style="font-size:11px;color:${dayColor};letter-spacing:1px;margin-top:2px;">DAY ${days+1}/${MAX_DAYS_OUT} IN FIELD${dayLabel}</div>`;
         })()}
         ${(p.wounds||0)>0 ? `<div style="font-size:11px;color:var(--red);letter-spacing:1px;margin-top:2px;">WOUNDS: ${'●'.repeat(p.wounds||0)}${'○'.repeat(Math.max(0,3-(p.wounds||0)))}</div>` : ''}`;
       div.appendChild(info);
@@ -7345,14 +7329,14 @@ function checkTutorialHints() {
   }
 }
 
-function triggerFatigueHint(firstName) {
-  showTutorialHint('fatigue',
-    '◈ TIP — FATIGUE',
+function triggerNightHint(firstName) {
+  showTutorialHint('night',
+    '◈ TIP — DAY / NIGHT',
     [
-      `${firstName} was recalled — exhausted.`,
-      'Scouts rest at the vault (−2 fatigue/day).',
+      `Night fell. ${firstName} returned to rest.`,
+      'Scouts can operate for 3 days at a time.',
       'Build an OUTPOST so they can rest',
-      'in the field without returning.',
+      'in the field and keep exploring.',
     ]
   );
 }
@@ -7528,7 +7512,7 @@ async function loadGame() {
     G.scoutCooldown = false;
     G.enemyUnits  = (s.enemyUnits || []).map(e => ({ ...e, moving:false, animX:null, animY:null }));
     G.nextEnemyId = s.nextEnemyId || 1;
-    G.people = (s.people || []).map(p => ({ wounds:0, gear: { weapon:null, armour:null, tool:null }, ...p }));
+    G.people = (s.people || []).map(p => ({ wounds:0, daysOut:0, gear: { weapon:null, armour:null, tool:null }, ...p }));
     G.stash  = s.stash || [];
     G.resourceHistory = s.resourceHistory || { power:[], food:[], water:[], population:[] };
     return true;
