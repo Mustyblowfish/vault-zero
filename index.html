@@ -2336,7 +2336,7 @@ body::before {
     <div id="vb-intro">
       <div class="vbi-alert">⚠ &nbsp; EMERGENCY BOOT SEQUENCE INITIATED</div>
       <div class="vbi-title">VAULT ZERO<br>SYSTEMS CRITICAL</div>
-      <div class="vbi-sub">Four systems need restoring before you can surface. Complete each step in sequence.</div>
+      <div class="vbi-sub">Three systems need restoring before you can surface. Complete each step in sequence.</div>
       <div class="vbi-steps">
         <div class="vbi-step vbi-step-pwr">
           <span class="vbi-step-ic">⚡</span>
@@ -2345,25 +2345,18 @@ body::before {
             <span class="vbi-step-d">Flip all 3 breaker switches to ON, then press ENGAGE MAIN BREAKER.</span>
           </div>
         </div>
-        <div class="vbi-step vbi-step-wat">
-          <span class="vbi-step-ic">◈</span>
-          <div class="vbi-step-body">
-            <span class="vbi-step-t">STEP 2 &nbsp;·&nbsp; WATER RECLAMATION</span>
-            <span class="vbi-step-d">Open the three valves to restore water reclamation.</span>
-          </div>
-        </div>
         <div class="vbi-step vbi-step-scv">
           <span class="vbi-step-ic">⊞</span>
           <div class="vbi-step-body">
-            <span class="vbi-step-t">STEP 3 &nbsp;·&nbsp; SCAVENGE VAULT</span>
+            <span class="vbi-step-t">STEP 2 &nbsp;·&nbsp; SCAVENGE VAULT</span>
             <span class="vbi-step-d">Search vault rooms to collect starting supplies — tap as many as you like, then continue.</span>
           </div>
         </div>
         <div class="vbi-step vbi-step-com">
           <span class="vbi-step-ic">▣</span>
           <div class="vbi-step-body">
-            <span class="vbi-step-t">STEP 4 &nbsp;·&nbsp; COMMS UNIT</span>
-            <span class="vbi-step-d">Once power and water are online, press ASSEMBLE UNIT to complete the boot.</span>
+            <span class="vbi-step-t">STEP 3 &nbsp;·&nbsp; COMMS UNIT</span>
+            <span class="vbi-step-d">Once power is online, tune the frequency dial to assemble the comms unit.</span>
           </div>
         </div>
       </div>
@@ -7948,7 +7941,7 @@ function vbInitRotaryDial(dialId, onComplete) {
   const dial = wrap.querySelector('.vb-rotary-dial');
   const hint = wrap.querySelector('.vb-rotary-hint');
   let currentAngle = 180;
-  const SNAP_RANGE = 18;
+  const SNAP_RANGE = 32;
   dial.style.transform = 'rotate(180deg)';
 
   function getAngleFromCenter(e) {
@@ -8316,7 +8309,7 @@ function vbUpdateCommsPanel() {
 
 function vbDoComms() {
   if (vbState.commsDone) return;
-  if (!vbState.powerDone || !vbState.waterDone) return;
+  if (!vbState.powerDone) return;
   sndCommsBtn();
 
   vbState.commsDone = true;  // set immediately so game-over check is safe
