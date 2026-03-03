@@ -487,9 +487,8 @@ body::before {
 }
 .btn.build-affordable:hover { background: rgba(0,255,65,0.08); }
 .btn.build-locked {
-  border-color: #2a0808;
-  background: rgba(255,0,0,0.03);
-  opacity: 0.55;
+  border-color: #3a1212;
+  background: rgba(255,0,0,0.04);
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -576,15 +575,29 @@ body::before {
   line-height: 1.8;
 }
 
-/* Info panel overlay on map */
+/* Backdrop for hex-info panel — click outside to close */
+#hex-info-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 19;
+  display: none;
+  pointer-events: all;
+  background: rgba(0,0,0,0.35);
+}
+
+/* Info panel overlay on map — centred so it never covers bottom-right stats */
 #hex-info {
   position: absolute;
-  bottom: 10px; right: 10px;
-  background: rgba(2,6,2,0.95);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(2,6,2,0.97);
   border: 1px solid var(--green-dark);
-  padding: 10px 14px;
-  min-width: 180px;
-  max-width: 220px;
+  padding: 12px 16px;
+  min-width: 240px;
+  max-width: 300px;
+  max-height: 68%;
+  overflow-y: auto;
   font-size: 11px;
   display: none;
   z-index: 20;
@@ -2693,6 +2706,7 @@ body::before {
           </div>
         </div>
 
+        <div id="hex-info-backdrop"></div>
         <div id="hex-info">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
             <h4 id="hi-title" style="margin-bottom:0;flex:1;">—</h4>
@@ -4610,14 +4624,14 @@ const HEX_TERRAIN = {
 
 const HEX_BUILDINGS = {
   // ── Early survival (wood only) ──
-  ANIMAL_PEN: { icon:'⌂', label:'Animal Pen',    costMetals:0, costWood:5,  desc:'+2 food/turn. Livestock kept near the vault. Build first.', effect:'food2' },
-  COLLECTOR:  { icon:'≋', label:'Rain Collector', costMetals:0, costWood:4,  desc:'+3 water/turn. Catches rainfall passively. Build first.',   effect:'water' },
+  ANIMAL_PEN: { icon:'⌂', abbrev:'AP', color:'#88cc44', label:'Animal Pen',    costMetals:0, costWood:5,  desc:'+2 food/turn. Livestock kept near the vault. Build first.', effect:'food2' },
+  COLLECTOR:  { icon:'≋', abbrev:'RC', color:'#44aaff', label:'Rain Collector', costMetals:0, costWood:4,  desc:'+3 water/turn. Catches rainfall passively. Build first.',   effect:'water' },
   // ── Mid-game (requires metals) ──
-  SOLAR:      { icon:'◉', label:'Solar Panel',    costMetals:4, costWood:0,  desc:'+4 power/turn passively.',                                   effect:'power' },
-  FURNACE:    { icon:'🔥', label:'Wood Furnace',  costMetals:2, costWood:4,  desc:'Burns 1 wood/turn for +6 power.',                            effect:'power2'},
-  GROWLIGHT:  { icon:'◇', label:'Grow Lights',    costMetals:4, costWood:2,  desc:'+3 food/turn. Requires power to run.',                       effect:'food'  },
-  OUTPOST:    { icon:'▲', label:'Outpost',         costMetals:2, costWood:4,  desc:'Field rest point. Characters recover fatigue here instead of returning to vault.',              effect:'range' },
-  FORGE:      { icon:'⚙', label:'Forge',           costMetals:3, costWood:3,  desc:'Unlocks advanced construction options.',                     effect:'forge' },
+  SOLAR:      { icon:'◉', abbrev:'SP', color:'#ffcc00', label:'Solar Panel',    costMetals:4, costWood:0,  desc:'+4 power/turn passively.',                                   effect:'power' },
+  FURNACE:    { icon:'♨', abbrev:'WF', color:'#ff7722', label:'Wood Furnace',   costMetals:2, costWood:4,  desc:'Burns 1 wood/turn for +6 power.',                            effect:'power2'},
+  GROWLIGHT:  { icon:'◇', abbrev:'GL', color:'#aaffaa', label:'Grow Lights',    costMetals:4, costWood:2,  desc:'+3 food/turn. Requires power to run.',                       effect:'food'  },
+  OUTPOST:    { icon:'⊡', abbrev:'OP', color:'#ccbb88', label:'Outpost',         costMetals:2, costWood:4,  desc:'Field rest point. Characters recover fatigue here instead of returning to vault.',              effect:'range' },
+  FORGE:      { icon:'⚙', abbrev:'FG', color:'#aaaacc', label:'Forge',           costMetals:3, costWood:3,  desc:'Unlocks advanced construction options.',                     effect:'forge' },
 };
 
 // Hex actions available per terrain type
@@ -5555,24 +5569,24 @@ function drawHex2(h,cx,cy) {
     return;
   }
 
-  // Building
+  // Building — coloured circle with 2-letter abbreviation
   if (h.building) {
     const bld = HEX_BUILDINGS[h.building];
-    const r2 = HEX_SIZE*0.32;
+    const r2 = HEX_SIZE*0.36;
     ctx2.beginPath();
     ctx2.arc(cx,cy,r2,0,Math.PI*2);
-    ctx2.fillStyle='rgba(0,20,5,0.85)';
+    ctx2.fillStyle='rgba(0,10,0,0.9)';
     ctx2.fill();
-    ctx2.strokeStyle='#00ff41';
-    ctx2.lineWidth=1.2;
+    ctx2.strokeStyle = bld.color;
+    ctx2.lineWidth=1.5;
     ctx2.stroke();
-    ctx2.fillStyle='#00ff41';
-    ctx2.font=`${Math.round(HEX_SIZE*0.38)}px monospace`;
+    ctx2.fillStyle = bld.color;
+    ctx2.font=`bold ${Math.round(HEX_SIZE*0.26)}px 'Share Tech Mono',monospace`;
     ctx2.textAlign='center';
     ctx2.textBaseline='middle';
-    ctx2.shadowColor='#00ff41';
-    ctx2.shadowBlur=5;
-    ctx2.fillText(bld.icon,cx,cy);
+    ctx2.shadowColor = bld.color;
+    ctx2.shadowBlur=4;
+    ctx2.fillText(bld.abbrev,cx,cy);
     ctx2.shadowBlur=0;
     return;
   }
@@ -6487,8 +6501,8 @@ function openHexInfo(h) {
           if (G.wood   < bld.costWood)   vNeed.push(`${bld.costWood   - G.wood  } wood`);
           vaultMissStr = `<br><span style="color:#993333;font-size:9px;">✗ NEED: ${vNeed.join(', ')}</span>`;
         }
-        const vLabelColor = canAfford ? 'var(--green-dim)' : '#664444';
-        const vDescColor  = canAfford ? '#00cc44'          : '#554444';
+        const vLabelColor = canAfford ? 'var(--green-dim)' : '#aa7777';
+        const vDescColor  = canAfford ? '#00cc44'          : '#887766';
         btn.innerHTML=`${bld.icon} ${bld.label} <span style="color:${vLabelColor};font-size:9px;">(${costStr})</span><br><span style="color:${vDescColor};font-size:9px;">${bld.desc}</span>${vaultMissStr}`;
         if(!canAfford) btn.disabled=true;
         btn.addEventListener('click',()=>{
@@ -6667,7 +6681,7 @@ function openHexInfo(h) {
       return `<br><span style="color:#993333;font-size:9px;">✗ NEED: ${n.join(', ')}</span>`;
     })() : '';
     outpostBtn.innerHTML = `${bld.icon} BUILD OUTPOST <span style="color:var(--green-dim);font-size:9px;">(${bld.costMetals} metals, ${bld.costWood} wood)</span><br>
-      <span style="color:${canAfford?'#00cc44':'#554444'};font-size:9px;">${bld.desc}</span>${missStr}`;
+      <span style="color:${canAfford?'#00cc44':'#887766'};font-size:9px;">${bld.desc}</span>${missStr}`;
     if (!canAfford) outpostBtn.disabled = true;
     outpostBtn.addEventListener('click', () => {
       G.metals -= bld.costMetals; G.wood -= bld.costWood;
@@ -6686,13 +6700,16 @@ function openHexInfo(h) {
     G.people.some(p => canPersonReachHex(p, h) && p.missionHex !== thisHexKeyForPulse);
   el.classList.toggle('action-ready', !!personHere || hasDispatchOptions);
   el.classList.add('show');
+  document.getElementById('hex-info-backdrop').style.display = 'block';
 }
 
 function closeHexInfo() {
   const el = document.getElementById('hex-info');
   el.classList.remove('show', 'action-ready');
+  document.getElementById('hex-info-backdrop').style.display = 'none';
   selectedH=null; drawMap();
 }
+document.getElementById('hex-info-backdrop').addEventListener('click', closeHexInfo);
 
 // ── Build Panel ──
 let pendingBuildType = null;
@@ -6738,8 +6755,8 @@ function openBuildPanel() {
       if (G.wood   < bld.costWood)   need.push(`${bld.costWood   - G.wood  } wood`);
       missingStr = `<br><span style="color:#993333;font-size:9px;">✗ NEED: ${need.join(', ')}</span>`;
     }
-    const labelColor  = canAfford ? 'var(--green-dim)' : '#664444';
-    const descColor   = canAfford ? '#00cc44'          : '#554444';
+    const labelColor  = canAfford ? 'var(--green-dim)' : '#aa7777';
+    const descColor   = canAfford ? '#00cc44'          : '#887766';
     btn.innerHTML = `${bld.icon} ${bld.label} <span style="color:${labelColor};font-size:9px;">(${costStr})</span><br><span style="color:${descColor};font-size:9px;">${bld.desc}</span>${missingStr}`;
     if (!canAfford) btn.disabled = true;
     btn.addEventListener('click', () => enterBuildPlacement(bk, bld));
