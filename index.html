@@ -3284,6 +3284,7 @@ const G = {
   discoveries: 0,
   survivors: 0,
   daysPassed: 0,
+  progressMilestoneTurn: 0, // turn when water hex was first found OR first building placed
   people: [],       // named survivors
   stash: [],        // unclaimed items (overflow when person.gear is full)
   resourceHistory: { power:[], food:[], water:[], population:[] },
@@ -4539,12 +4540,23 @@ function nextTurn() {
   // Random event
   if (Math.random() < 0.25 && G.phase >= 2) randomEvent();
 
+  // Track when first progress milestone (water hex revealed or building placed) is reached
+  if (G.phase === 2 && !G.progressMilestoneTurn) {
+    const hasWaterHex = Object.values(G.world).some(h => h.revealed && h.terrain === 'WATER');
+    const hasBuilding = Object.values(G.world).some(h => h.building);
+    if (hasWaterHex || hasBuilding) G.progressMilestoneTurn = G.turn;
+  }
+
   // Survivor / first companion trigger
   if (G.phase === 2) {
-    if (G.tutorialStarted && G.turn === 7) {
-      // Tutorial: reliable companion arrival at turn 7
-      G.tutorialStarted = false;
-      setTimeout(triggerContact, 800);
+    if (G.tutorialStarted) {
+      // Tutorial: companion arrives 2 turns after water is found or first building placed,
+      // with a fallback at turn 10 in case neither has happened
+      const minTurn = G.progressMilestoneTurn ? G.progressMilestoneTurn + 2 : 10;
+      if (G.turn >= minTurn) {
+        G.tutorialStarted = false;
+        setTimeout(triggerContact, 800);
+      }
     } else if (!G.tutorialStarted && G.discoveries >= 2 && G.turn >= 5 && Math.random() < 0.10) {
       // Non-tutorial (returning players): random arrival from turn 5+
       triggerContact();
@@ -6305,7 +6317,11 @@ function showEncounter(enc, hex, person) {
   textEl.innerHTML = '';
   choicesEl.innerHTML = '';
   overlay.classList.add('active');
-  overlay.onclick = () => { if (encounterSkipFn) encounterSkipFn(); };
+  overlay.onclick = e => {
+    if (encounterSkipFn) { encounterSkipFn(); return; }
+    // Click on the dark backdrop (outside the panel) closes the encounter
+    if (!e.target.closest('#encounter-panel')) closeEncounter();
+  };
 
   encNavigate(enc.entry, true);
 }
@@ -6359,6 +6375,15 @@ function encRenderActions(node, choicesEl) {
     btn.addEventListener('click', () => encResolveAction(action));
     choicesEl.appendChild(btn);
   });
+
+  // Fallback: if no actions remain visible, always give a way out
+  if (visible.length === 0) {
+    const btn = document.createElement('button');
+    btn.className = 'enc-btn';
+    btn.textContent = '[ CONTINUE ]';
+    btn.addEventListener('click', closeEncounter);
+    choicesEl.appendChild(btn);
+  }
 }
 
 function encResolveAction(action) {
@@ -7217,7 +7242,14 @@ canvas.addEventListener('mousemove',e=>{
 });
 canvas.addEventListener('mouseleave',()=>{hoverH=null;drawMap();});
 canvas.addEventListener('mouseup',e=>{
-  if(!isDragging){const p=canvasPos(e.clientX,e.clientY);handleMapTap(p.x,p.y);}
+  if(!isDragging){
+    const p=canvasPos(e.clientX,e.clientY);
+    const now=Date.now();
+    // Suppress second mouseup of a dblclick so dblclick handler runs uncontested
+    const isSecondOfDouble=(now-lastClickTime)<350&&Math.hypot(p.x-lastClickSx,p.y-lastClickSy)<30;
+    lastClickTime=now; lastClickSx=p.x; lastClickSy=p.y;
+    if(!isSecondOfDouble) handleMapTap(p.x,p.y);
+  }
   isDragging=false;
 });
 canvas.addEventListener('wheel',e=>{
@@ -7252,6 +7284,7 @@ canvas.addEventListener('touchmove',e=>{
     pinchDist=nd; drawMap();
   }
 },{passive:false});
+let lastClickTime=0, lastClickSx=0, lastClickSy=0;
 let lastTapTime=0, lastTapPos=null;
 canvas.addEventListener('touchend',e=>{
   if(!isDragging&&e.changedTouches.length===1){
@@ -7619,6 +7652,7 @@ function saveGame() {
     resourceHistory: G.resourceHistory,
     tutorialPhase: G.tutorialPhase ?? -1,
     tutorialStarted: G.tutorialStarted ?? false,
+    progressMilestoneTurn: G.progressMilestoneTurn ?? 0,
   };
   try {
     window.storage.set(SAVE_KEY, JSON.stringify(saveData));
@@ -7655,8 +7689,9 @@ async function loadGame() {
     G.people = (s.people || []).map(p => ({ wounds:0, daysOut:0, gear: { weapon:null, armour:null, tool:null }, ...p }));
     G.stash  = s.stash || [];
     G.resourceHistory = s.resourceHistory || { power:[], food:[], water:[], population:[] };
-    G.tutorialPhase   = s.tutorialPhase   ?? -1;
-    G.tutorialStarted = s.tutorialStarted ?? false;
+    G.tutorialPhase          = s.tutorialPhase          ?? -1;
+    G.tutorialStarted        = s.tutorialStarted        ?? false;
+    G.progressMilestoneTurn  = s.progressMilestoneTurn  ?? 0;
     return true;
   } catch(e) { return false; }
 }
@@ -7796,7 +7831,7 @@ function devSkipToMap() {
   G.phase = 3; G.power = 80; G.food = 8; G.water = 15; G.metals = 10; G.wood = 5;
   G.population = 1; G.turn = 1; G.scanRange = 1;
   G.enemyUnits = []; G.nextEnemyId = 1;
-  G.tutorialPhase = -1; G.tutorialStarted = false;
+  G.tutorialPhase = -1; G.tutorialStarted = false; G.progressMilestoneTurn = 0;
   G.systems = { power:true, water:true, comms:true, scanner:true, fabricator:false };
   const player = G.people.find(p=>p.isPlayer) || (() => {
     const p = generatePerson('scout'); p.isPlayer = true; p.id = 'player_0';
