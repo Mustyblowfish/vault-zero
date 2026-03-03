@@ -585,18 +585,18 @@ body::before {
   background: rgba(0,0,0,0.35);
 }
 
-/* Info panel overlay on map — centred so it never covers bottom-right stats */
+/* Info panel — bottom-centre so double-clicking upper map still works */
 #hex-info {
   position: absolute;
-  top: 50%;
+  bottom: 56px;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   background: rgba(2,6,2,0.97);
   border: 1px solid var(--green-dark);
   padding: 12px 16px;
   min-width: 240px;
   max-width: 300px;
-  max-height: 68%;
+  max-height: 52%;
   overflow-y: auto;
   font-size: 11px;
   display: none;
@@ -2264,7 +2264,7 @@ body::before {
       color:var(--green-dim);
       animation:splashBlink 1.4s step-end infinite;
       margin-top:4px;
-    ">[ CLICK TO BEGIN ]</div>
+    ">[ CLICK ANYWHERE TO INITIATE ]</div>
     <div id="splash-progress" style="margin-top:4px;"><div id="splash-progress-bar"></div></div>
     <div id="splash-steps" style="
       display:none;
@@ -2334,7 +2334,7 @@ body::before {
           <span class="vbi-step-ic">⚡</span>
           <div class="vbi-step-body">
             <span class="vbi-step-t">STEP 1 &nbsp;·&nbsp; POWER GRID</span>
-            <span class="vbi-step-d">Flip all 6 breaker switches to ON, then press ENGAGE MAIN BREAKER.</span>
+            <span class="vbi-step-d">Flip all 3 breaker switches to ON, then press ENGAGE MAIN BREAKER.</span>
           </div>
         </div>
         <div class="vbi-step vbi-step-wat">
@@ -2384,7 +2384,7 @@ body::before {
           <span class="vbm-tag" id="vbs-power">OFFLINE</span>
         </div>
         <div class="vbm-body">
-          <div class="vb-instr" id="vb-power-hint">Tap each switch → flip all 6 to ON → press ENGAGE</div>
+          <div class="vb-instr" id="vb-power-hint">Tap each switch → flip all 3 to ON → press ENGAGE</div>
           <div id="vb-breaker-grid"><!-- built by JS --></div>
           <button id="vb-engage-btn" disabled onclick="vbEngagePower()">[ ENGAGE MAIN BREAKER ]</button>
         </div>
@@ -3384,34 +3384,61 @@ function runSplash() {
     setTimeout(runStep, 120);
   }
 
-  // Click anywhere on splash: go directly to character creation
+  // Click anywhere on splash: first click starts boot sequence, second (after done) continues
   splash.addEventListener('click', () => {
-    initAudio();
-    transitionToCharCreate();
+    if (!bootStarted) {
+      startBootSequence();
+    } else if (sequenceDone) {
+      transitionToCharCreate();
+    }
   });
 
-  // Show the click hint shortly after title appears
+  // Show the click-to-boot hint after the title has been visible ~700ms
   setTimeout(() => {
-    if (clickHint) clickHint.style.opacity = '1';
-  }, 600);
+    if (clickHint && !bootStarted) clickHint.style.opacity = '1';
+  }, 700);
+
+  // Fallback auto-start after 8s for users who don't click
+  setTimeout(() => startBootSequence(), 8000);
 }
 
 function transitionToCharCreate() {
   const splash = document.getElementById('splash');
   if (splash.style.display === 'none') return; // already transitioned
+  initAudio();
   splash.style.transition = 'opacity 0.6s';
   splash.style.opacity = '0';
   setTimeout(() => {
     splash.style.display = 'none';
-    const cc = document.getElementById('char-create');
-    cc.style.display = 'flex';
-    cc.style.opacity = '0';
-    cc.style.transition = 'opacity 0.5s';
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => { cc.style.opacity = '1'; });
-    });
-    initCharCreate();
+    // Run brief terminal narrative then prompt registration
+    runPreRegNarrative();
   }, 650);
+}
+
+function runPreRegNarrative() {
+  log('VAULT ZERO OS v2.31.7', 'sys');
+  log('SEED ARCHIVE: INTACT — 12,847 SPECIES', 'sys', 300);
+  log('POWER RESERVES: 3% — CRITICAL', 'sys', 600);
+  log('darkness.', 'story', 900);
+  log('then: a flicker.', 'story', 1080);
+  log('then: numbers.', 'story', 1240);
+  log('I am ARIA. Dormant for an unknown period.', 'story', 1500);
+  log('The seeds are safe. The power won\'t last.', 'story', 1800);
+  log('LIFE SIGN DETECTED. PERSONNEL REGISTRATION REQUIRED.', 'sys', 2100);
+  setTimeout(() => {
+    setActions([
+      { id:'register', label:'[ REGISTER PERSONNEL ]', style:'primary', glow:true, action: showCharCreate }
+    ]);
+  }, 2600);
+}
+
+function showCharCreate() {
+  const cc = document.getElementById('char-create');
+  cc.style.display = 'flex';
+  cc.style.opacity = '0';
+  cc.style.transition = 'opacity 0.4s';
+  requestAnimationFrame(() => requestAnimationFrame(() => { cc.style.opacity = '1'; }));
+  initCharCreate();
 }
 
 function initCharCreate() {
@@ -4066,16 +4093,13 @@ function toast(msg) {
 // ══════════════════════════════════════════════
 function startGame() {
   G.phase = 0;
-  // Personalise boot text with player name if available
+  // Pre-registration narrative already played — just confirm identity
   const player = G.people.find(p=>p.isPlayer);
-  const beats = STORY_BEATS[0];
-  for (const b of beats) log(b.text || '', b.type, b.delay || 0);
+  logGap();
   if (player) {
-    setTimeout(() => {
-      log(`REGISTERED OCCUPANT: ${player.name.toUpperCase()}`, 'sys', 200);
-      log(`ROLE: ${player.role} ${ROLE_DEFS[player.role]?.icon || ''}`, 'sys', 500);
-      logGap();
-    }, 300);
+    log(`REGISTERED OCCUPANT: ${player.name.toUpperCase()}`, 'sys', 200);
+    log(`ROLE: ${player.role} ${ROLE_DEFS[player.role]?.icon || ''}`, 'sys', 500);
+    logGap();
   }
 
   setTimeout(() => {
@@ -4083,7 +4107,7 @@ function startGame() {
     setActions([
       { id:'power', label:'[ RESTORE POWER GRID ]', style:'primary', glow:true, action: restorePower }
     ]);
-  }, 2200);
+  }, 1200);
 }
 
 // ══════════════════════════════════════════════
@@ -7715,8 +7739,8 @@ const VB_ROOMS = [
 ];
 
 let vbBreakersOn = 0;
-const VB_BREAKER_COUNT = 6;
-const VB_BREAKER_LABELS = ['HVAC','LIFT','LIGHTS','PUMPS','FORGE','AUX'];
+const VB_BREAKER_COUNT = 3;
+const VB_BREAKER_LABELS = ['POWER','LIFE SUPPORT','COMMS'];
 let vbState = {
   powerDone:false, waterDone:false, commsDone:false,
   food:0, water:0, metal:0, wood:0, survivor:false,
@@ -8048,7 +8072,7 @@ function vbToggleBreaker(i, el) {
     vbBreakersOn--;
     const btn = document.getElementById('vb-engage-btn');
     btn.disabled = true; btn.classList.remove('vb-ready');
-    if (hint) hint.textContent = `${vbBreakersOn}/6 ON — flip all 6, then press ENGAGE`;
+    if (hint) hint.textContent = `${vbBreakersOn}/${VB_BREAKER_COUNT} ON — flip all ${VB_BREAKER_COUNT}, then press ENGAGE`;
     return;
   }
   // Toggle ON
@@ -8058,9 +8082,9 @@ function vbToggleBreaker(i, el) {
   if (vbBreakersOn >= VB_BREAKER_COUNT) {
     const btn = document.getElementById('vb-engage-btn');
     btn.disabled = false; btn.classList.add('vb-ready');
-    if (hint) hint.textContent = '✓ all 6 circuits ON — press ENGAGE MAIN BREAKER';
+    if (hint) hint.textContent = `✓ all ${VB_BREAKER_COUNT} circuits ON — press ENGAGE MAIN BREAKER`;
   } else {
-    if (hint) hint.textContent = `${vbBreakersOn}/6 ON — ${VB_BREAKER_COUNT - vbBreakersOn} remaining`;
+    if (hint) hint.textContent = `${vbBreakersOn}/${VB_BREAKER_COUNT} ON — ${VB_BREAKER_COUNT - vbBreakersOn} remaining`;
   }
 }
 
