@@ -3404,13 +3404,13 @@ function runSplash() {
 
 function transitionToCharCreate() {
   const splash = document.getElementById('splash');
-  if (splash.style.display === 'none') return; // already transitioned
+  // Guard against double-call (button onclick + bubbled splash listener fire together)
+  if (splash.style.display === 'none' || splash.style.opacity === '0') return;
   initAudio();
   splash.style.transition = 'opacity 0.6s';
   splash.style.opacity = '0';
   setTimeout(() => {
     splash.style.display = 'none';
-    // Run brief terminal narrative then prompt registration
     runPreRegNarrative();
   }, 650);
 }
@@ -3433,6 +3433,7 @@ function runPreRegNarrative() {
 }
 
 function showCharCreate() {
+  setActions([]); // clear register button before overlay appears
   const cc = document.getElementById('char-create');
   cc.style.display = 'flex';
   cc.style.opacity = '0';
