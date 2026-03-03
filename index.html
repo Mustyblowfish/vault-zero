@@ -1351,9 +1351,9 @@ body::before {
   display: flex; align-items: center; gap: 6px;
   font-size: 10px; letter-spacing: 1px; line-height: 1.9;
 }
-.roster-gear-slot-label { color: #003300; width: 46px; flex-shrink: 0; }
+.roster-gear-slot-label { color: #007700; width: 46px; flex-shrink: 0; }
 .roster-gear-item-name  { flex: 1; }
-.gear-empty   { color: #002200; }
+.gear-empty   { color: #005500; }
 .gear-weapon  { color: #cc6600; }
 .gear-armour  { color: #00aa77; }
 .gear-tool    { color: #0077cc; }
@@ -7090,7 +7090,7 @@ function openRosterOverlay() {
       // Gear slots (DOM-built so we can attach listeners)
       const gearSec = document.createElement('div');
       gearSec.className = 'roster-gear-section';
-      gearSec.style.cssText = 'margin-top:6px;padding-top:5px;border-top:1px solid #001800;';
+      gearSec.style.cssText = 'margin-top:6px;padding-top:5px;border-top:1px solid var(--green-dark);';
       const slots = ['weapon','armour','tool'];
       const pGear = p.gear || { weapon:null, armour:null, tool:null };
       slots.forEach(slot => {
@@ -7136,7 +7136,7 @@ function openRosterOverlay() {
         });
         gearSec.appendChild(stashRow);
       }
-      div.appendChild(gearSec);
+      info.appendChild(gearSec);
 
       body.appendChild(div);
 
