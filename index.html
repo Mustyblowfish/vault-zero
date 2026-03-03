@@ -451,6 +451,15 @@ body::before {
 .btn.btn-glow:not(:disabled)      { animation: btn-boot-glow      1.6s ease-in-out infinite; }
 .btn.btn-glow-next:not(:disabled) { animation: btn-boot-glow-next 1.1s ease-in-out infinite; color: var(--green); }
 .btn.btn-glow.amber:not(:disabled) { animation: btn-boot-glow-amber 1.3s ease-in-out infinite; }
+/* Register Personnel — larger, more prominent */
+#btn-register:not(:disabled) {
+  font-size: 14px;
+  letter-spacing: 3px;
+  padding: 11px 30px;
+  margin-top: 4px;
+  text-shadow: 0 0 16px var(--green);
+  box-shadow: 0 0 24px rgba(0,255,65,0.4), inset 0 0 12px rgba(0,255,65,0.07);
+}
 
 /* End Day pulse — appears when all characters are spent */
 @keyframes action-panel-pulse {
@@ -1656,10 +1665,6 @@ body::before {
   #vb-engage-btn    { font-size: 11px; letter-spacing: 2px; padding: 10px 0; margin-top: 4px; }
 
   /* Water module */
-  .vb-pipe-row      { padding: 4px 0; }
-  .vb-valve         { width: 32px; height: 32px; font-size: 14px; }
-  .vb-pipe-seg      { width: 14px; }
-  .vb-pn-label      { font-size: 9px; letter-spacing: 0; }
   /* Scavenge module */
   #vb-room-grid   { gap: 5px; }
   .vb-room        { min-height: 54px; padding: 5px 3px; }
@@ -1794,46 +1799,6 @@ body::before {
 @keyframes vb-amber-glow {
   0%,100% { box-shadow: 0 0 0px rgba(255,176,0,0); }
   50%      { box-shadow: 0 0 16px rgba(255,176,0,0.35); }
-}
-
-/* ─────────────────────────────────────
-   WATER MODULE — pipe diagram + choices
-   ───────────────────────────────────── */
-.vb-pipe-row {
-  display: flex; align-items: center; justify-content: center;
-  gap: 0; padding: 6px 0 4px;
-}
-.vb-pipe-node { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-.vb-pn-label { font-size: 11px; letter-spacing: 1px; color: #007799; transition: color 0.4s; }
-.vb-pn-label.flowing { color: #00aacc; }
-.vb-valve {
-  width: 38px; height: 38px; border-radius: 50%;
-  border: 2px solid #005577; background: #000d14;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 17px; color: #005577;
-  transition: all 0.35s; cursor: pointer;
-}
-.vb-valve.open { pointer-events: none; }
-.vb-water-status {
-  font-size: 11px; letter-spacing: 2px; color: #006688;
-  text-align: center; margin-top: auto; padding-top: 10px;
-  transition: color 0.4s;
-}
-.vb-valve.open {
-  border-color: #00ccff; color: #00ccff;
-  background: rgba(0,204,255,0.1);
-  box-shadow: 0 0 12px rgba(0,204,255,0.3);
-  transform: rotate(45deg);
-}
-.vb-pipe-seg {
-  width: 18px; height: 3px;
-  background: #002233; margin: 0 -1px;
-  transition: background 0.4s, box-shadow 0.4s;
-  flex-shrink: 0;
-}
-.vb-pipe-seg.flowing {
-  background: #00ccff;
-  box-shadow: 0 0 6px rgba(0,204,255,0.4);
 }
 
 /* ─────────────────────────────────────
@@ -2409,11 +2374,9 @@ body::before {
     <div id="vb-progress">
       <div class="vbp-dot vbp-active" id="vbp-1"><span class="vbp-ic">⚡</span><span class="vbp-lbl">POWER</span></div>
       <div class="vbp-line"></div>
-      <div class="vbp-dot" id="vbp-2"><span class="vbp-ic">◈</span><span class="vbp-lbl">WATER</span></div>
+      <div class="vbp-dot" id="vbp-2"><span class="vbp-ic">⊞</span><span class="vbp-lbl">SCAVENGE</span></div>
       <div class="vbp-line"></div>
-      <div class="vbp-dot" id="vbp-3"><span class="vbp-ic">⊞</span><span class="vbp-lbl">SCAVENGE</span></div>
-      <div class="vbp-line"></div>
-      <div class="vbp-dot" id="vbp-4"><span class="vbp-ic">▣</span><span class="vbp-lbl">COMMS</span></div>
+      <div class="vbp-dot" id="vbp-3"><span class="vbp-ic">▣</span><span class="vbp-lbl">COMMS</span></div>
     </div>
 
     <!-- Sequential task modules — one visible at a time -->
@@ -2433,41 +2396,11 @@ body::before {
         </div>
       </div>
 
-      <!-- ── STEP 2: WATER MODULE ── -->
-      <div class="vb-module vb-module-water" id="vbm-water">
-        <div class="vbm-hdr">
-          <span class="vbm-icon">◈</span>
-          <span class="vbm-title">2 · WATER RECLAMATION</span>
-          <span class="vbm-tag" id="vbs-water">OFFLINE</span>
-        </div>
-        <div class="vbm-body">
-          <div class="vb-instr" id="vb-water-hint">Turn each valve to restore flow — tap to open</div>
-          <!-- interactive pipe diagram -->
-          <div class="vb-pipe-row">
-            <div class="vb-pipe-node">
-              <div class="vb-valve" id="vbv-0" onclick="vbOpenValve(0)">⊕</div>
-              <div class="vb-pn-label" id="vbpl-0">INTAKE</div>
-            </div>
-            <div class="vb-pipe-seg" id="vbps-0"></div>
-            <div class="vb-pipe-node">
-              <div class="vb-valve" id="vbv-1" onclick="vbOpenValve(1)">⊕</div>
-              <div class="vb-pn-label" id="vbpl-1">FILTER</div>
-            </div>
-            <div class="vb-pipe-seg" id="vbps-1"></div>
-            <div class="vb-pipe-node">
-              <div class="vb-valve" id="vbv-2" onclick="vbOpenValve(2)">⊕</div>
-              <div class="vb-pn-label" id="vbpl-2">TANK</div>
-            </div>
-          </div>
-          <div class="vb-water-status" id="vb-water-status">0 / 3 VALVES OPEN</div>
-        </div>
-      </div>
-
-      <!-- ── STEP 3: SCAVENGE MODULE ── -->
+      <!-- ── STEP 2: SCAVENGE MODULE ── -->
       <div class="vb-module vb-module-scav" id="vbm-scav">
         <div class="vbm-hdr">
           <span class="vbm-icon">⊞</span>
-          <span class="vbm-title">3 · SCAVENGE VAULT</span>
+          <span class="vbm-title">2 · SCAVENGE VAULT</span>
           <span class="vbm-tag" id="vbs-scav">0/3 SEARCHED</span>
         </div>
         <div class="vbm-body">
@@ -2488,19 +2421,15 @@ body::before {
       <div class="vb-module vb-module-comms" id="vbm-comms">
         <div class="vbm-hdr">
           <span class="vbm-icon">▣</span>
-          <span class="vbm-title">4 · COMMS UNIT</span>
+          <span class="vbm-title">3 · COMMS UNIT</span>
           <span class="vbm-tag" id="vbs-comms">OFFLINE</span>
         </div>
         <div class="vbm-body">
-          <div class="vb-instr">Both systems must be online to assemble the comms unit</div>
+          <div class="vb-instr">Power must be online to assemble the comms unit</div>
           <div class="vb-reqs">
             <div class="vb-req-row" id="vbr-pwr">
               <div class="vb-req-check" id="vbrc-pwr">✗</div>
               <span class="vb-req-label">POWER GRID ONLINE</span>
-            </div>
-            <div class="vb-req-row" id="vbr-wat">
-              <div class="vb-req-check" id="vbrc-wat">✗</div>
-              <span class="vb-req-label">WATER COOLANT ONLINE</span>
             </div>
           </div>
           <div class="vb-rotary vb-hs-locked" id="vb-comms-rotary">
@@ -3037,18 +2966,28 @@ function sndBreaker(isOn) {
 
 // Power engage: big electrical surge sweep (sawtooth + harmonic)
 function sndPowerEngage() {
-  const out = sfxOut(0.5); if (!out) return;
-  [[55, 880, 'sawtooth', 0.35], [110, 1760, 'sine', 0.18]].forEach(([f0, f1, type, vol]) => {
-    const osc = audioCtx.createOscillator();
-    const env = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(f0, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(f1, audioCtx.currentTime + 0.55);
-    env.gain.setValueAtTime(vol, audioCtx.currentTime);
-    env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.55);
-    osc.connect(env); env.connect(out);
-    osc.start(); osc.stop(audioCtx.currentTime + 0.6);
-  });
+  const out = sfxOut(0.38); if (!out) return;
+  const t = audioCtx.currentTime;
+  // Sharp electrical click
+  const cb = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
+  const cd = cb.getChannelData(0);
+  for (let i = 0; i < cd.length; i++) cd[i] = Math.random() * 2 - 1;
+  const cn = audioCtx.createBufferSource(); cn.buffer = cb;
+  const cf = audioCtx.createBiquadFilter(); cf.type = 'highpass'; cf.frequency.value = 1200;
+  const ce = audioCtx.createGain();
+  ce.gain.setValueAtTime(0.45, t); ce.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+  cn.connect(cf); cf.connect(ce); ce.connect(out); cn.start(t); cn.stop(t + 0.06);
+  // Heavy low thud
+  const o = audioCtx.createOscillator(); const e = audioCtx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.28);
+  e.gain.setValueAtTime(0.38, t); e.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+  o.connect(e); e.connect(out); o.start(t); o.stop(t + 0.3);
+  // Slow hum build (power coming on)
+  const h = audioCtx.createOscillator(); const hg = audioCtx.createGain();
+  h.type = 'sawtooth'; h.frequency.value = 60;
+  hg.gain.setValueAtTime(0, t + 0.08); hg.gain.linearRampToValueAtTime(0.07, t + 0.55);
+  hg.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+  h.connect(hg); hg.connect(out); h.start(t + 0.08); h.stop(t + 1.05);
 }
 
 // Slider grab: short soft noise tick
@@ -3071,15 +3010,15 @@ function sndSliderStart() {
 
 // Water choice: hydraulic whoosh (descending sine + entry blip)
 function sndWaterChoice() {
-  const out = sfxOut(0.38); if (!out) return;
+  const out = sfxOut(0.18); if (!out) return;
   const osc = audioCtx.createOscillator(); const env = audioCtx.createGain();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(660, audioCtx.currentTime);
   osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.28);
-  env.gain.setValueAtTime(0.35, audioCtx.currentTime);
+  env.gain.setValueAtTime(0.18, audioCtx.currentTime);
   env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.28);
   osc.connect(env); env.connect(out); osc.start(); osc.stop(audioCtx.currentTime + 0.32);
-  sndBlip(440, 0.055, 0.22);
+  sndBlip(440, 0.055, 0.10);
 }
 
 // Scavenge room: metallic scrape (band-pass noise burst)
@@ -3101,12 +3040,12 @@ function sndScavRoom() {
 
 // Comms assemble: ascending electronic chord
 function sndCommsBtn() {
-  const out = sfxOut(0.38); if (!out) return;
+  const out = sfxOut(0.18); if (!out) return;
   [294, 370, 494, 659, 880].forEach((freq, i) => {
     const osc = audioCtx.createOscillator(); const env = audioCtx.createGain();
     osc.type = 'square'; osc.frequency.value = freq;
     const t = audioCtx.currentTime + i * 0.06;
-    env.gain.setValueAtTime(0.22, t);
+    env.gain.setValueAtTime(0.10, t);
     env.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
     osc.connect(env); env.connect(out); osc.start(t); osc.stop(t + 0.1);
   });
@@ -3117,16 +3056,22 @@ function sndTermBtn(freq) { sndBlip(freq, 0.12, 0.42); }
 
 // Access Vault Systems: dramatic rising chord
 function sndVaultAccess() {
-  const out = sfxOut(0.48); if (!out) return;
-  [[110, 440, 'sawtooth'], [220, 880, 'sine'], [330, 1320, 'sine']].forEach(([f0, f1, type], i) => {
-    const osc = audioCtx.createOscillator(); const env = audioCtx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(f0, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(f1, audioCtx.currentTime + 0.5);
-    env.gain.setValueAtTime(0.22 - i * 0.05, audioCtx.currentTime);
-    env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.55);
-    osc.connect(env); env.connect(out); osc.start(); osc.stop(audioCtx.currentTime + 0.6);
-  });
+  const out = sfxOut(0.32); if (!out) return;
+  const t = audioCtx.currentTime;
+  // Filtered noise thud — heavy door/mechanism feel
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.35, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const ns = audioCtx.createBufferSource(); ns.buffer = buf;
+  const nf = audioCtx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 180; nf.Q.value = 1.4;
+  const ne = audioCtx.createGain();
+  ne.gain.setValueAtTime(0.55, t); ne.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  ns.connect(nf); nf.connect(ne); ne.connect(out); ns.start(t); ns.stop(t + 0.36);
+  // Low sub tone
+  const o = audioCtx.createOscillator(); const e = audioCtx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(55, t + 0.3);
+  e.gain.setValueAtTime(0.3, t); e.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  o.connect(e); e.connect(out); o.start(t); o.stop(t + 0.32);
 }
 
 // BEGIN SEQUENCE: firm thunk + rising blip
@@ -3723,7 +3668,7 @@ function drawFacePortrait(canvas, name, role) {
   // No neck — head fills the frame
 }
 
-const MAX_DAYS_OUT = 3; // days a scout can operate before returning to rest
+const MAX_DAYS_OUT = 4; // days a scout can operate before returning to rest
 
 // ── Enemy unit definitions ──
 const ENEMY_TYPES = {
@@ -3977,6 +3922,13 @@ function updateEndDayGlow() {
     }
   }
   btn.classList.remove('endday-tutorial-locked');
+
+  // Tutorial phase 2: player has foraged — prompt them to end day
+  if (G.tutorialPhase === 2 && !btn.disabled) {
+    btn.classList.add('endday-ready');
+    syncMapEndDayBtn();
+    return;
+  }
 
   if (btn.disabled) return;
   // Only relevant once the map is active and people exist
@@ -4511,10 +4463,10 @@ function nextTurn() {
   // Reset everyone's move + action tokens for the new turn
   G.people.forEach(p => { p.actionsLeft = 1; p.movesLeft = 1; });
 
-  // Tutorial phase transitions (turn-based)
+  // Tutorial phase transitions (turn-based, phases 3/4 are water/build nudges)
   if (G.tutorialPhase > 0) {
-    if      (G.turn === 2 && G.tutorialPhase <= 1) advanceTutorial(2);
-    else if (G.turn === 3 && G.tutorialPhase <= 2) advanceTutorial(3);
+    if      (G.turn === 2 && G.tutorialPhase <= 2) advanceTutorial(3);
+    else if (G.turn === 3 && G.tutorialPhase <= 3) advanceTutorial(4);
     else if (G.turn >= 4  && G.tutorialPhase >= 1) completeTutorial();
   }
   updateHUD();
@@ -5512,6 +5464,19 @@ function generateWorld() {
     G.world[key] = { q,r,terrain,revealed:false,building:null,explored:false };
   }
   G.world['0,0'].terrain = 'WASTE';
+  // Tutorial: guarantee a water hex within 2-3 steps so the water step is reachable
+  if (G.tutorialStarted) {
+    const hasNearWater = Object.values(G.world).some(h => {
+      const d = hDist(h.q, h.r, 0, 0);
+      return d >= 2 && d <= 3 && h.terrain === 'WATER';
+    });
+    if (!hasNearWater) {
+      const cands = Object.values(G.world).filter(h =>
+        hDist(h.q,h.r,0,0) === 2 && h.terrain !== 'MOUNTAIN' && h.terrain !== 'WASTE'
+      );
+      if (cands.length) cands[Math.floor(cands.length / 2)].terrain = 'WATER';
+    }
+  }
   revealAround(0,0,G.scanRange);
 }
 
@@ -6652,7 +6617,9 @@ function openHexInfo(h) {
   const hexKey = `${h.q},${h.r}`;
   const personHere = G.people.find(p => p.missionHex === hexKey && p.status === 'mission' && p.actionsLeft > 0);
   if (h.explored && personHere) {
-    const availActions = HEX_ACTIONS[h.terrain] || ['forage','search_survivors'];
+    let availActions = HEX_ACTIONS[h.terrain] || ['forage','search_survivors'];
+    // Tutorial turn 1: forage is the only permitted action
+    if (G.tutorialPhase === 1) availActions = ['forage'];
 
     // Person portrait header
     const personHeader = document.createElement('div');
@@ -6934,6 +6901,8 @@ function performHexAction(person, hex, actKey) {
   if (ad.yields === 'food') {
     G.food += amount;
     log(`${firstName} found ${amount} food.${roleBonusTxt}`, 'story', 300);
+    // Tutorial: food foraged — prompt to end day
+    if (G.tutorialPhase === 1) advanceTutorial(2);
   } else if (ad.yields === 'water') {
     G.water += amount;
     log(`${firstName} collected ${amount} units of water.`, 'story', 300);
@@ -7453,7 +7422,7 @@ function triggerNightHint(firstName) {
     '◈ TIP — DAY / NIGHT',
     [
       `Night fell. ${firstName} returned to rest.`,
-      'Scouts can operate for 3 days at a time.',
+      'Scouts can operate for 4 days at a time.',
       'Build an OUTPOST so they can rest',
       'in the field and keep exploring.',
     ]
@@ -7487,15 +7456,16 @@ function updateTutorialBanner() {
   const text = document.getElementById('tutorial-banner-text');
   const msgs = {
     0: '◈ MOVE YOUR PLAYER — click an amber hex to explore',
-    1: '◈ TAKE AN ACTION — open a hex and forage for food',
-    2: '◈ WATER IS LOW — find a river or lake, collect water',
-    3: '◈ BUILD SOMETHING — open the BUILD panel',
+    1: '◈ FORAGE FOR FOOD — it is your only action today',
+    2: '◈ END YOUR DAY — click End Day to continue',
+    3: '◈ WATER IS LOW — find a river or lake, collect water',
+    4: '◈ BUILD SOMETHING — open the BUILD panel',
   };
   if (msgs[G.tutorialPhase] !== undefined) {
     text.textContent = msgs[G.tutorialPhase];
     banner.style.display = 'flex';
     if (G.tutorialPhase === 1) setTimeout(() => pulseResourceBar('food'), 300);
-    if (G.tutorialPhase === 2) setTimeout(() => pulseResourceBar('water'), 300);
+    if (G.tutorialPhase === 3) setTimeout(() => pulseResourceBar('water'), 300);
   } else {
     banner.style.display = 'none';
   }
@@ -7880,7 +7850,7 @@ function resumeFromSave() {
    ══════════════════════════════════════════════════════════════════ */
 
 // Sequential step IDs in order
-const VB_STEP_IDS = ['vbm-power', 'vbm-water', 'vbm-scav', 'vbm-comms'];
+const VB_STEP_IDS = ['vbm-power', 'vbm-scav', 'vbm-comms'];
 const VB_MAX_ROOMS = 3;
 let vbCurrentStep = 0;
 
@@ -7898,7 +7868,7 @@ let vbBreakersOn = 0;
 const VB_BREAKER_COUNT = 3;
 const VB_BREAKER_LABELS = ['POWER','LIFE SUPPORT','COMMS'];
 let vbState = {
-  powerDone:false, waterDone:false, commsDone:false,
+  powerDone:false, commsDone:false,
   food:0, water:0, metal:0, wood:0, survivor:false,
 };
 
@@ -8044,7 +8014,7 @@ function showVaultBoot() {
   // Reset all state
   vbBreakersOn = 0;
   vbCurrentStep = 0;
-  vbState = { powerDone:false, waterDone:false, commsDone:false,
+  vbState = { powerDone:false, commsDone:false,
               food:0, water:0, metal:0, wood:0, survivor:false };
   // G.phase stays as-is (set by terminal phases); completeVaultBoot sets phase=2 + turn=1
 
@@ -8156,7 +8126,7 @@ function vbGoToStep(newIdx) {
 
 // ── Update step progress dots ───────────────────────────────────
 function vbUpdateProgress(stepIdx) {
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     const dot = document.getElementById(`vbp-${i+1}`);
     if (!dot) continue;
     dot.classList.toggle('vbp-active', i === stepIdx);
@@ -8166,7 +8136,7 @@ function vbUpdateProgress(stepIdx) {
 
 // ── CONTINUE from scavenge to comms ────────────────────────────
 function vbScavContinue() {
-  vbGoToStep(3);
+  vbGoToStep(2);
 }
 
 // ── Show brief "COMPLETE" flash on a module ─────────────────────
@@ -8261,39 +8231,8 @@ function vbEngagePower() {
   vbStepFlash('vbm-power', 'POWER GRID');
   vbUpdateCommsPanel();
 
-  // Slide to water module after brief pause for flash
+  // Slide to scavenge module after brief pause for flash
   setTimeout(() => vbGoToStep(1), 1200);
-}
-
-// ── WATER ──────────────────────────────────────────────────────
-let vbValvesOpen = 0;
-function vbOpenValve(idx) {
-  if (vbState.waterDone) return;
-  const valve = document.getElementById(`vbv-${idx}`);
-  if (!valve || valve.classList.contains('open')) return;
-  sndWaterChoice();
-  valve.classList.add('open');
-  document.getElementById(`vbpl-${idx}`)?.classList.add('flowing');
-  if (idx > 0) document.getElementById(`vbps-${idx - 1}`)?.classList.add('flowing');
-  if (idx === 2) document.getElementById(`vbps-1`)?.classList.add('flowing');
-  vbValvesOpen++;
-  const status = document.getElementById('vb-water-status');
-  if (status) status.textContent = `${vbValvesOpen} / 3 VALVES OPEN`;
-  if (vbValvesOpen >= 3) vbWaterComplete();
-}
-function vbWaterComplete() {
-  vbState.waterDone = true;
-  vbState.water += 10;
-  const hint = document.getElementById('vb-water-hint');
-  if (hint) hint.textContent = '+10 WATER SECURED';
-  const status = document.getElementById('vb-water-status');
-  if (status) { status.textContent = 'ALL SYSTEMS FLOWING'; status.style.color = '#00ccff'; }
-  const tag = document.getElementById('vbs-water');
-  tag.textContent = 'ONLINE'; tag.classList.add('online');
-  document.getElementById('vbm-water')?.classList.add('vb-done');
-  vbStepFlash('vbm-water', 'WATER');
-  vbUpdateCommsPanel();
-  setTimeout(() => vbGoToStep(2), 1200);
 }
 
 // ── SCAVENGE ───────────────────────────────────────────────────
@@ -8360,18 +8299,15 @@ function vbSearchRoom(room, el) {
 // ── COMMS ──────────────────────────────────────────────────────
 function vbUpdateCommsPanel() {
   const pwrMet = vbState.powerDone;
-  const watMet = vbState.waterDone;
-  const allMet = pwrMet && watMet && !vbState.commsDone;
+  const allMet = pwrMet && !vbState.commsDone;
 
-  // Requirement rows
-  [['pwr',pwrMet],['wat',watMet]].forEach(([k,met]) => {
-    const chk = document.getElementById(`vbrc-${k}`);
-    const row = document.getElementById(`vbr-${k}`);
-    if (chk) { chk.textContent = met ? '✓' : '✗'; chk.classList.toggle('met', met); }
-    if (row) row.classList.toggle('met', met);
-  });
+  // Requirement row
+  const chk = document.getElementById('vbrc-pwr');
+  const row = document.getElementById('vbr-pwr');
+  if (chk) { chk.textContent = pwrMet ? '✓' : '✗'; chk.classList.toggle('met', pwrMet); }
+  if (row) row.classList.toggle('met', pwrMet);
 
-  // Unlock comms rotary when all requirements met
+  // Unlock comms rotary when power is online
   const commsRot = document.getElementById('vb-comms-rotary');
   if (commsRot && !vbState.commsDone) {
     commsRot.classList.toggle('vb-hs-locked', !allMet);
